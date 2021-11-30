@@ -45,8 +45,8 @@ def parse_args():
                       'is not guaranteed. Using CPU is encouraged.')
 
     args = parser.parse_args()
-    args.device = ('cuda' if (torch.cuda.is_available()
-                   and args.use_cuda) else 'cpu')
+    args.device = torch.device('cuda:0' if args.use_cuda
+                               and torch.cuda.is_available() else 'cpu')
     return args
 
 
