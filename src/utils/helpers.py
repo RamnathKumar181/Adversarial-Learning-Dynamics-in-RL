@@ -1,10 +1,11 @@
 import gym
 import torch
-
+import torch.nn.functional as F
 from functools import reduce
 from operator import mul
 
 from src.maml_rl.policies import CategoricalMLPPolicy, NormalMLPPolicy
+from src.ciayn.model import Embedding_Network, Inference_Network
 
 
 def get_policy_for_env(env, hidden_sizes=(100, 100), nonlinearity='relu'):
@@ -25,6 +26,14 @@ def get_policy_for_env(env, hidden_sizes=(100, 100), nonlinearity='relu'):
                                       hidden_sizes=tuple(hidden_sizes),
                                       nonlinearity=nonlinearity)
     return policy
+
+
+def get_encoder(input_size=10, output_size=64, hidden_sizes=(64), nonlinearity=F.elu):
+    return Embedding_Network(input_size, output_size, hidden_sizes, nonlinearity)
+
+
+def get_inference(input_size=10, output_size=64, hidden_sizes=(200, 200), nonlinearity=F.elu):
+    return Inference_Network(input_size, output_size, hidden_sizes, nonlinearity)
 
 
 def get_input_size(env):

@@ -2,18 +2,19 @@ import logging
 import torch
 import wandb
 import gym
+from gym.wrappers.monitoring.video_recorder import VideoRecorder
 from tqdm import trange
 import numpy as np
-from src.maml_rl.metalearners import MAMLTRPO
+from src.maml_rl.metalearners import CIAYN
 from src.maml_rl.baseline import LinearFeatureBaseline
 from src.samplers import MultiTaskSampler
-from src.utils.helpers import get_policy_for_env, get_input_size
+from src.utils.helpers import get_policy_for_env, get_input_size, get_encoder, get_inference
 from src.utils.reinforcement_learning import get_returns
 
 
-class MAMLTrainer():
+class CIAYNTrainer():
     """
-    MAML Trainer
+    CIAYN Trainer
     """
 
     def __init__(self, config):
@@ -24,12 +25,10 @@ class MAMLTrainer():
 
     def _build(self):
         self._get_env()
-        self._get_policy()
+        self._get_models()
         self._get_baseline()
-        self._get_sampler()
         self._get_metalearner()
         self._train()
-        wandb.watch(self.policy)
 
     def _train(self):
         num_iterations = 0
@@ -69,39 +68,40 @@ class MAMLTrainer():
         self.env = gym.make(self.config['env-name'], **self.config.get('env-kwargs', {}))
         self.env.close()
 
-    def _get_policy(self):
+    def _get_models(self):
         # Policy
         self.policy = get_policy_for_env(self.env,
                                          hidden_sizes=self.config['hidden-sizes'],
                                          nonlinearity=self.config['nonlinearity'])
         self.policy.share_memory()
+        wandb.watch(self.policy)
+
+        # Embedding Network
+        self.encoder = get_encoder(hidden_sizes=self.config['encoder-hidden-sizes'],
+                                   nonlinearity=self.config['encoder-nonlinearity'])
+        wandb.watch(self.encoder)
+
+        # Inference Network
+        self.inference = get_inference(hidden_sizes=self.config['inference-hidden-sizes'],
+                                       nonlinearity=self.config['inference-nonlinearity'])
+        wandb.watch(self.inference)
 
     def _get_baseline(self):
         # Baseline
         self.baseline = LinearFeatureBaseline(get_input_size(self.env))
 
-    def _get_sampler(self):
-        # Sampler
-        self.sampler = MultiTaskSampler(self.config['env-name'],
-                                        env_kwargs=self.config.get('env-kwargs', {}),
-                                        batch_size=self.config['fast-batch-size'],
-                                        policy=self.policy,
-                                        baseline=self.baseline,
-                                        env=self.env,
-                                        seed=self.config['seed'],
-                                        num_workers=self.config['num_workers'])
-
     def _get_metalearner(self):
         # Metalearner
-        self.metalearner = MAMLTRPO(self.policy,
-                                    fast_lr=self.config['fast-lr'],
-                                    first_order=self.config['first-order'],
-                                    device=self.config['device'])
+        self.metalearner = CIAYN(self.env,
+                                 self.policy,
+                                 self.encoder,
+                                 self.inference,
+                                 device=self.config['device'])
 
 
-class MAMLTester():
+class CIAYNTester():
     """
-    MAML Tester
+    CIAYN Tester
     """
 
     def __init__(self, config):
@@ -116,6 +116,27 @@ class MAMLTester():
         self._get_baseline()
         self._get_sampler()
         self._test()
+        if self.config['plot']:
+            self.plot_world()
+
+    def plot_world(self):
+        self.env = gym.make(self.config['env-name'], **self.config.get('env-kwargs', {}))
+        video = VideoRecorder(self.env, self.config["plot_name"])
+        observations = self.env.reset()
+        self.env.render()
+        video.capture_frame()
+        with torch.no_grad():
+            while not self.envs.dones.all():
+                observations_tensor = torch.from_numpy(observations)
+                pi = self.policy(observations_tensor)
+                actions_tensor = pi.sample()
+                actions = actions_tensor.cpu().numpy()
+                new_observations, rewards, _, infos = self.envs.step(actions)
+                self.env.render()
+                video.capture_frame()
+                observations = new_observations
+        self.env.close()
+        video.close()
 
     def _test(self):
         logs = {'tasks': []}
