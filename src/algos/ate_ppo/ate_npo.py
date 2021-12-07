@@ -32,9 +32,16 @@ class Convert_tf_params_to_class:
 
 
 def get_policy_params(obj):
-    params = [v for v in tf.trainable_variables(scope=obj.name)]
+    params = obj._variable_scope.trainable_variables()
     p = Convert_tf_params_to_class(params)
     return p
+
+
+@tf.function
+def get_jsd(dis1, dis2, mean_dis):
+    kl = tf.keras.losses.KLDivergence()
+    jsd = 0.5*kl(dis1, mean_dis) + 0.5*kl(dis2, mean_dis)
+    return jsd
 
 
 class ATENPO(RLAlgorithm):
@@ -201,15 +208,16 @@ class ATENPO(RLAlgorithm):
         # Jointly optimize policy and encoder network
         encoder_loss, pol_loss, pol_kl, embed_kl = self._build_policy_loss(pol_loss_inputs)
         self._policy_optimizer.update_opt(loss=pol_loss,
-                                          target=get_policy_params(self.policy),
+                                          # target=get_policy_params(self.policy),
+                                          target=self.policy,
                                           leq_constraint=(pol_kl, self._max_kl_step),
                                           inputs=flatten_inputs(
                                               self._policy_opt_inputs),
                                           constraint_name='mean_kl')
 
-        self.embedding_optimizer.update_opt(
+        self._encoder_optimizer.update_opt(
             loss=encoder_loss,
-            target=self.policy.embedding,
+            target=self.policy.encoder,
             leq_constraint=(embed_kl, self._max_kl_step),
             inputs=flatten_inputs(self._policy_opt_inputs),
             constraint_name="mean_kl")
@@ -240,7 +248,7 @@ class ATENPO(RLAlgorithm):
             last_return = self._train_once(trainer.step_itr,
                                            trainer.step_episode)
             trainer.step_itr += 1
-            wandb.log(tabular.as_primitive_dict)
+            wandb.log({'average_return': tabular.as_primitive_dict['Evaluation/AverageReturn']})
         return last_return
 
     def _train_once(self, itr, episodes):
@@ -305,7 +313,7 @@ class ATENPO(RLAlgorithm):
         # TODO: Work here
         # Embedding network
         for _ in range(self.num_embedding_itr):
-            self._train_embedding_network(policy_opt_input_values)
+            self._train_encoder_network(policy_opt_input_values)
 
         # Policy Network
         for _ in range(self.num_policy_itr):
@@ -628,18 +636,18 @@ class ATENPO(RLAlgorithm):
             # 1. Encoder distribution total entropy
             with tf.name_scope('encoder_entropy'):
                 # TODO: Add jsd loss here
-                encoder_dist, _, _ = self.policy.encoder.build(
-                    i.task_var, name='encoder_entropy').outputs
+                # encoder_dist, _, _ = self.policy.encoder.build(
+                #     i.task_var, name='encoder_entropy').outputs
                 # encoder_all_task_entropies = -encoder_dist.log_prob(
                 #     i.latent_var)
                 #
                 # if self._use_softplus_entropy:
                 #     encoder_entropy = tf.nn.softplus(
                 #         encoder_all_task_entropies)
-                print(encoder_dist, i.task_var)
-                mean_distribution = tf.add(encoder_dist, i.task_var)
-                jsd = 0.5*tf.distributions.kl_divergence(encoder_dist, mean_distribution) +\
-                    0.5*tf.distributions.kl_divergence(i.task_var, mean_distribution)
+                latent = enc_dist.sample(
+                    seed=deterministic.get_tf_seed_stream())
+                mean_distribution = tf.add(latent, i.task_var)
+                jsd = get_jsd(latent, i.task_var, mean_distribution)
 
                 encoder_entropy = tf.reduce_mean(jsd,
                                                  name='encoder_entropy')
@@ -919,7 +927,7 @@ class ATENPO(RLAlgorithm):
         pol_ent = np.sum(pol_ent) / np.sum(episodes.lengths)
         tabular.record('{}/Entropy'.format(self.policy.name), pol_ent)
 
-        task_ents = self._f_task_entropies(*policy_opt_input_values)
+        # task_ents = self._f_task_entropies(*policy_opt_input_values)
         tasks = tasks[:, 0, :]
         _, task_indices = np.nonzero(tasks)
         path_lengths = np.sum(valids, axis=1)
@@ -931,7 +939,7 @@ class ATENPO(RLAlgorithm):
                            np.mean(lengths))
             tabular.record('Tasks/TerminationRate/t={}'.format(t),
                            pct_completed)
-            tabular.record('Tasks/Entropy/t={}'.format(t), task_ents[t])
+            # tabular.record('Tasks/Entropy/t={}'.format(t), task_ents[t])
 
         return fit_paths
 
@@ -951,7 +959,7 @@ class ATENPO(RLAlgorithm):
                 hist = Histogram(samples)
                 tabular.record('Encoder/task={},i={}'.format(task, i), hist)
 
-    def _train_encoder_networks(self, policy_opt_input_values):
+    def _train_encoder_network(self, policy_opt_input_values):
         """Optimization of encoder networks.
 
         Args:
@@ -987,7 +995,7 @@ class ATENPO(RLAlgorithm):
 
         return loss_after
 
-    def _train_policy_networks(self, policy_opt_input_values):
+    def _train_policy_network(self, policy_opt_input_values):
         """Optimization of policy networks.
 
         Args:
@@ -1012,7 +1020,7 @@ class ATENPO(RLAlgorithm):
         policy_kl = self._f_policy_kl(*policy_opt_input_values)
 
         logger.log('Computing loss after')
-        loss_after = self._optimizer.loss(policy_opt_input_values)
+        loss_after = self._policy_optimizer.loss(policy_opt_input_values)
         tabular.record('{}/LossBefore'.format(self.policy.name), loss_before)
         tabular.record('{}/LossAfter'.format(self.policy.name), loss_after)
         tabular.record('{}/dLoss'.format(self.policy.name),

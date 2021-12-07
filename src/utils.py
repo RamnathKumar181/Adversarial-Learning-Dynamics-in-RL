@@ -1,7 +1,6 @@
 from collections import namedtuple
 from src.envs import get_point_mass_env, get_env_from_gym
 from src.algos import get_te_ppo_algo, get_dqn_algo, get_ate_ppo_algo
-
 Benchmark = namedtuple('Benchmark', 'algo env ')
 
 

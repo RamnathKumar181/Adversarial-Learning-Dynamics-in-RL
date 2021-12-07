@@ -207,7 +207,7 @@ class TENPO(RLAlgorithm):
             last_return = self._train_once(trainer.step_itr,
                                            trainer.step_episode)
             trainer.step_itr += 1
-            wandb.log(tabular.as_primitive_dict)
+            wandb.log({'average_return': tabular.as_primitive_dict['Evaluation/AverageReturn']})
         return last_return
 
     def _train_once(self, itr, episodes):
