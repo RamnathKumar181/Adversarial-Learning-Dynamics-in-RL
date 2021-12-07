@@ -207,7 +207,7 @@ class TENPO(RLAlgorithm):
             last_return = self._train_once(trainer.step_itr,
                                            trainer.step_episode)
             trainer.step_itr += 1
-
+            wandb.log(tabular.as_primitive_dict)
         return last_return
 
     def _train_once(self, itr, episodes):
@@ -841,37 +841,29 @@ class TENPO(RLAlgorithm):
         # Calculate effect of the entropy terms
         d_rewards = np.mean(aug_rewards - env_rewards)
         tabular.record('{}/EntRewards'.format(self.policy.name), d_rewards)
-        wandb.log({'{}/EntRewards'.format(self.policy.name): d_rewards})
         aug_average_discounted_return = (np.mean(
             [ret[0] for ret in returns_tensor]))
         d_returns = np.mean(aug_average_discounted_return -
                             env_average_discounted_return)
         tabular.record('{}/EntReturns'.format(self.policy.name), d_returns)
-        wandb.log({'{}/EntReturns'.format(self.policy.name): d_returns})
         # Calculate explained variance
         ev = explained_variance_1d(np.concatenate(baselines_list), aug_returns)
         tabular.record('{}/ExplainedVariance'.format(self._baseline.name), ev)
-        wandb.log({'{}/ExplainedVariance'.format(self._baseline.name): ev})
         inference_rmse = (embed_ep_infos['mean'] - latents)**2.
         inference_rmse = np.sqrt(inference_rmse.mean())
         tabular.record('Inference/RMSE', inference_rmse)
-        wandb.log({'Inference/RMSE': inference_rmse})
 
         inference_rrse = rrse(latents, embed_ep_infos['mean'])
         tabular.record('Inference/RRSE', inference_rrse)
-        wandb.log({'Inference/RRSE': inference_rrse})
 
         embed_ent = self._f_encoder_entropy(*policy_opt_input_values)
         tabular.record('{}/Encoder/Entropy'.format(self.policy.name),
                        embed_ent)
-        wandb.log({'{}/Encoder/Entropy'.format(self.policy.name): embed_ent})
         infer_ce = self._f_inference_ce(*policy_opt_input_values)
         tabular.record('Inference/CrossEntropy', infer_ce)
-        wandb.log({'Inference/CrossEntropy': infer_ce})
         pol_ent = self._f_policy_entropy(*policy_opt_input_values)
         pol_ent = np.sum(pol_ent) / np.sum(episodes.lengths)
         tabular.record('{}/Entropy'.format(self.policy.name), pol_ent)
-        wandb.log({'{}/Entropy'.format(self.policy.name): pol_ent})
         task_ents = self._f_task_entropies(*policy_opt_input_values)
         tasks = tasks[:, 0, :]
         _, task_indices = np.nonzero(tasks)

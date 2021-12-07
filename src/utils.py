@@ -1,7 +1,7 @@
 from collections import namedtuple
-from src.envs import get_point_mass_env, get_dqn_algo
-from src.algos import get_te_ppo_algo, get_env_from_gym
-from tensorflow import tf
+from src.envs import get_point_mass_env, get_env_from_gym
+from src.algos import get_te_ppo_algo, get_dqn_algo
+import tensorflow as tf
 
 Benchmark = namedtuple('Benchmark', 'algo env ')
 

@@ -6,7 +6,7 @@ from dowel import Histogram, logger, tabular
 import numpy as np
 import scipy.stats
 import tensorflow as tf
-
+import wandb
 from garage import InOutSpec, log_performance
 from garage.experiment import deterministic
 from garage.np import (discount_cumsum, explained_variance_1d, pad_batch_array,
@@ -224,7 +224,7 @@ class ATENPO(RLAlgorithm):
             last_return = self._train_once(trainer.step_itr,
                                            trainer.step_episode)
             trainer.step_itr += 1
-
+            wandb.log(tabular)
         return last_return
 
     def _train_once(self, itr, episodes):
