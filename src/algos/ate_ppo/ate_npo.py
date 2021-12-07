@@ -19,9 +19,22 @@ from garage.tf import (center_advs, compile_function, compute_advantages,
 from garage.tf.embeddings import StochasticEncoder
 from garage.tf.optimizers import LBFGSOptimizer
 from garage.tf.policies import TaskEmbeddingPolicy
-from src.utils import get_policy_params
 
 # yapf: enable
+
+
+class Convert_tf_params_to_class:
+    def __init__(self, params):
+        self.params = params
+
+    def get_params(self):
+        return self.params
+
+
+def get_policy_params(obj):
+    params = [v for v in tf.trainable_variables(scope=obj.name)]
+    p = Convert_tf_params_to_class(params)
+    return p
 
 
 class ATENPO(RLAlgorithm):
@@ -126,6 +139,9 @@ class ATENPO(RLAlgorithm):
         self._old_policy = policy.clone('old_policy')
         self._use_softplus_entropy = use_softplus_entropy
         self._stop_ce_gradient = stop_ce_gradient
+        self.num_embedding_itr = num_embedding_itr
+        self.num_policy_itr = num_policy_itr
+        self.num_inference_itr = num_inference_itr
 
         policy_optimizer = policy_optimizer or LBFGSOptimizer
         policy_optimizer_args = policy_optimizer_args or dict()
@@ -224,7 +240,7 @@ class ATENPO(RLAlgorithm):
             last_return = self._train_once(trainer.step_itr,
                                            trainer.step_episode)
             trainer.step_itr += 1
-            wandb.log(tabular)
+            wandb.log(tabular.as_primitive_dict)
         return last_return
 
     def _train_once(self, itr, episodes):
@@ -620,6 +636,7 @@ class ATENPO(RLAlgorithm):
                 # if self._use_softplus_entropy:
                 #     encoder_entropy = tf.nn.softplus(
                 #         encoder_all_task_entropies)
+                print(encoder_dist, i.task_var)
                 mean_distribution = tf.add(encoder_dist, i.task_var)
                 jsd = 0.5*tf.distributions.kl_divergence(encoder_dist, mean_distribution) +\
                     0.5*tf.distributions.kl_divergence(i.task_var, mean_distribution)
