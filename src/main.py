@@ -61,6 +61,12 @@ def parse_args():
                            help='Steps per epoch. (default: 10).')
     algo_args.add_argument('--sampler_batch_size', type=int, default=500,
                            help='Sampler batch size. (default: 500).')
+    algo_args.add_argument('--num_embedding_itr', type=int, default=30,
+                           help='Number of epochs of training encoder in ate_ppo. (default: 30).')
+    algo_args.add_argument('--num_policy_itr', type=int, default=30,
+                           help='Number of epochs of training policy in ate_ppo. (default: 30).')
+    algo_args.add_argument('--num_inference_itr', type=int, default=20,
+                           help='Number of epochs of training inference in ate_ppo. (default: 20).')
 
     # Miscellaneous
     misc = parser.add_argument_group('Miscellaneous')
