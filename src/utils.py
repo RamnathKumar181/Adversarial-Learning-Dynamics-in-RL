@@ -1,19 +1,31 @@
-from collections import namedtuple
-from src.envs import get_point_mass_env, get_env_from_gym
-from src.algos import get_te_ppo_algo, get_dqn_algo, get_ate_ppo_algo
-Benchmark = namedtuple('Benchmark', 'algo env ')
+from src.launchers import train_te_ppo_pointenv, train_ate_ppo_pointenv
+from src.launchers import train_te_ppo_mt10, train_ate_ppo_mt10
+from gym import wrappers
 
 
-def get_benchmark_by_name(algo_name, algo_args, env_name, env_args):
-    if env_name == "point_mass":
-        env = get_point_mass_env(env_args)
-    elif env_name in ['CartPole-v0']:
-        env = get_env_from_gym(env_name)
+def visualize_algorithm_as_video(env, policy):
+    env.spec.id = 1
+    env = wrappers.Monitor(env, "./gym-results", force=True)
+    obs = env.reset()
+    for i in range(1000):
+        action, _ = policy.get_action(obs)
+        obs, reward, done, info = env.step(action)
+        if done:
+            break
+
+    print("done at step %i" % i)
+    env.close()
+
+
+def get_benchmark_by_name(algo_name, env_name):
     if algo_name == "te_ppo":
-        algo = get_te_ppo_algo(algo_args, env)
-    elif algo_name == "dqn":
-        algo = get_dqn_algo(algo_args, env)
+        if env_name == "point_mass":
+            algo = train_te_ppo_pointenv
+        if env_name == "mt10":
+            algo = train_te_ppo_mt10
     elif algo_name == "ate_ppo":
-        algo = get_ate_ppo_algo(algo_args, env)
-    return Benchmark(algo=algo,
-                     env=env)
+        if env_name == "point_mass":
+            algo = train_ate_ppo_pointenv
+        if env_name == "mt10":
+            algo = train_ate_ppo_mt10
+    return algo

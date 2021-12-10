@@ -4,7 +4,7 @@ from garage.sampler import LocalSampler
 from src.algos.ate_ppo import ATEPPO
 from garage.tf.algos.te import TaskEmbeddingWorker
 from garage.tf.embeddings import GaussianMLPEncoder
-from garage.tf.policies import GaussianMLPTaskEmbeddingPolicy
+from src.policy import GaussianMLPTaskEmbeddingPolicy
 
 
 def get_ate_ppo_algo(algo_args, env):

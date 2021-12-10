@@ -23,20 +23,6 @@ from garage.tf.policies import TaskEmbeddingPolicy
 # yapf: enable
 
 
-class Convert_tf_params_to_class:
-    def __init__(self, params):
-        self.params = params
-
-    def get_params(self):
-        return self.params
-
-
-def get_policy_params(obj):
-    params = obj._variable_scope.trainable_variables()
-    p = Convert_tf_params_to_class(params)
-    return p
-
-
 @tf.function
 def get_jsd(dis1, dis2, mean_dis):
     kl = tf.keras.losses.KLDivergence()
@@ -125,6 +111,7 @@ class ATENPO(RLAlgorithm):
                  num_embedding_itr=20,
                  num_policy_itr=30,
                  num_inference_itr=30,
+                 threshold=150,
                  name='NPOTaskEmbedding'):
         # pylint: disable=too-many-statements
         assert isinstance(policy, TaskEmbeddingPolicy)
@@ -133,7 +120,7 @@ class ATENPO(RLAlgorithm):
         self.policy = policy
         self._scope = scope
         self.max_episode_length = env_spec.max_episode_length
-
+        self.threshold = threshold
         self._env_spec = env_spec
         self._baseline = baseline
         self._discount = discount
@@ -149,6 +136,7 @@ class ATENPO(RLAlgorithm):
         self.num_embedding_itr = num_embedding_itr
         self.num_policy_itr = num_policy_itr
         self.num_inference_itr = num_inference_itr
+        self.best_return = None
 
         policy_optimizer = policy_optimizer or LBFGSOptimizer
         policy_optimizer_args = policy_optimizer_args or dict()
@@ -208,7 +196,6 @@ class ATENPO(RLAlgorithm):
         # Jointly optimize policy and encoder network
         encoder_loss, pol_loss, pol_kl, embed_kl = self._build_policy_loss(pol_loss_inputs)
         self._policy_optimizer.update_opt(loss=pol_loss,
-                                          # target=get_policy_params(self.policy),
                                           target=self.policy,
                                           leq_constraint=(pol_kl, self._max_kl_step),
                                           inputs=flatten_inputs(
@@ -248,7 +235,16 @@ class ATENPO(RLAlgorithm):
             last_return = self._train_once(trainer.step_itr,
                                            trainer.step_episode)
             trainer.step_itr += 1
-            wandb.log({'average_return': tabular.as_primitive_dict['Evaluation/AverageReturn']})
+            # if trainer.step_itr % self.threshold == 0:
+            #     print(trainer.step_itr)
+            #     print("was here")
+            #     self._policy_optimizer._learning_rate /= 10
+            #     self._encoder_optimizer._learning_rate /= 10
+            #     self._inference_optimizer._learning_rate /= 10
+            #     self._init_opt()
+            if self.best_return is None or self.best_return < last_return:
+                self.best_return = last_return
+        print(f"Best return using policy: {self.best_return}")
         return last_return
 
     def _train_once(self, itr, episodes):
@@ -288,7 +284,7 @@ class ATENPO(RLAlgorithm):
         logger.log('Optimizing policy...')
         self._optimize_policy(itr, episodes, baselines, embed_eps,
                               embed_ep_infos)
-
+        wandb.log({'Average_Return': average_return})
         return average_return
 
     def _optimize_policy(self, itr, episodes, baselines, embed_eps,
@@ -317,7 +313,9 @@ class ATENPO(RLAlgorithm):
 
         # Policy Network
         for _ in range(self.num_policy_itr):
+            # encoder_weights = self.policy.encoder.get_param_values()
             self._train_policy_network(policy_opt_input_values)
+            # self.policy.encoder.set_param_values(encoder_weights)
 
         # Inference Network
         for _ in range(self.num_inference_itr):
@@ -326,6 +324,7 @@ class ATENPO(RLAlgorithm):
         # paths = samples_data['paths']
         fit_paths = self._evaluate(policy_opt_input_values, episodes,
                                    baselines, embed_ep_infos)
+
         self._visualize_distribution()
 
         logger.log('Fitting baseline...')
@@ -638,19 +637,23 @@ class ATENPO(RLAlgorithm):
                 # TODO: Add jsd loss here
                 # encoder_dist, _, _ = self.policy.encoder.build(
                 #     i.task_var, name='encoder_entropy').outputs
-                # encoder_all_task_entropies = -encoder_dist.log_prob(
+                # cond_encoder_all_task_entropies = -encoder_dist.log_prob(
                 #     i.latent_var)
-                #
+                # encoder_all_task_entropies = encoder_dist.entropy()
+
                 # if self._use_softplus_entropy:
+                #     cond_encoder_entropy = tf.nn.softplus(
+                #         cond_encoder_all_task_entropies)
                 #     encoder_entropy = tf.nn.softplus(
                 #         encoder_all_task_entropies)
+                # enc = tf.add(cond_encoder_entropy, encoder_entropy)
                 latent = enc_dist.sample(
                     seed=deterministic.get_tf_seed_stream())
                 mean_distribution = tf.add(latent, i.task_var)
                 jsd = get_jsd(latent, i.task_var, mean_distribution)
-
                 encoder_entropy = tf.reduce_mean(jsd,
                                                  name='encoder_entropy')
+
                 encoder_entropy = tf.stop_gradient(encoder_entropy)
 
             # 2. Infernece distribution cross-entropy (log-likelihood)

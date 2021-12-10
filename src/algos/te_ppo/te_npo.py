@@ -120,7 +120,7 @@ class TENPO(RLAlgorithm):
         self._old_policy = policy.clone('old_policy')
         self._use_softplus_entropy = use_softplus_entropy
         self._stop_ce_gradient = stop_ce_gradient
-
+        self.best_return = None
         optimizer = optimizer or LBFGSOptimizer
         optimizer_args = optimizer_args or dict()
 
@@ -207,7 +207,9 @@ class TENPO(RLAlgorithm):
             last_return = self._train_once(trainer.step_itr,
                                            trainer.step_episode)
             trainer.step_itr += 1
-            wandb.log({'average_return': tabular.as_primitive_dict['Evaluation/AverageReturn']})
+            if self.best_return is None or self.best_return < last_return:
+                self.best_return = last_return
+        print(f"Best return using policy: {self.best_return}")
         return last_return
 
     def _train_once(self, itr, episodes):
@@ -247,6 +249,7 @@ class TENPO(RLAlgorithm):
         logger.log('Optimizing policy...')
         self._optimize_policy(itr, episodes, baselines, embed_eps,
                               embed_ep_infos)
+        wandb.log({'Average_Return': average_return})
 
         return average_return
 

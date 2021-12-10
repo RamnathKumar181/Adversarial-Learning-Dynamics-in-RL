@@ -1,12 +1,14 @@
 from src.utils import get_benchmark_by_name
-from garage import rollout, wrap_experiment
+from garage import wrap_experiment, rollout
 from garage.trainer import TFTrainer
-from garage.experiment import Snapshotter
+# from garage.experiment import Snapshotter
 from garage.experiment.deterministic import set_seed
 import tensorflow as tf
 import wandb
 import os
 import time
+import joblib
+from glob import glob
 
 
 @wrap_experiment()
@@ -20,19 +22,18 @@ def _train(ctxt, seed=1):
                                           env_args=args.env_args)
         trainer.setup(benchmark.algo, benchmark.env)
         trainer.train(n_epochs=args.epochs,
-                      batch_size=args.batch_size_per_task,
-                      plot=args.plot)
+                      batch_size=args.batch_size, plot=True)
 
 
-def _test(snapshot_dir, seed=1):
+def _test(folder, seed=1):
     set_seed(seed)
-    snapshotter = Snapshotter()
+    tf.compat.v1.reset_default_graph()
     with tf.compat.v1.Session():
-        data = snapshotter.load(snapshot_dir)
+        data = joblib.load(f'{folder}/params.pkl')
         policy = data['algo'].policy
-        env = data['env']
+        envs = data['env']
         # See what the trained policy can accomplish
-        path = rollout(env, policy, animated=True)
+        path = rollout(envs, policy, animated=True, deterministic=True)
         print(path)
 
 
@@ -46,11 +47,15 @@ class Trainer():
         self._build()
 
     def _build(self):
-        self._create_config_file()
         if self.args.train:
-            _train({'log_dir': self.args.snapshot_dir, 'use_existing_dir': True}, seed=self.args.seed)
+            self._create_config_file()
+            train_function = get_benchmark_by_name(algo_name=self.args.algo,
+                                                   env_name=self.args.env,)
+            train_function(self.args)
         else:
-            _test(snapshot_dir=self.args.snapshot_dir)
+            file_path = glob(self.args.snapshot_dir)[0]
+            folder = os.path.join(self.args.snapshot_dir, file_path)
+            _test(folder)
 
     def _create_config_file(self):
         if (self.args.snapshot_dir is not None):
