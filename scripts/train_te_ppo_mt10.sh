@@ -13,4 +13,4 @@ module load mujoco/2.0
 module load mujoco-py
 
 cd ..
-python -m src.main --exp_name te_ppo_mt10 --train --env mt10 --epochs 50
+python -m src.main --exp_name te_ppo_mt10 --train --env mt10 --epochs 600 --policy_optimizer_lr 1e-4 --inference_optimizer_lr 1e-4

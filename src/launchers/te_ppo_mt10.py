@@ -45,8 +45,8 @@ def train(ctxt):
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
 
-    latent_length = 4
-    inference_window = 6
+    latent_length = 10
+    inference_window = 10
     batch_size = 1024 * len(envs)
     policy_ent_coeff = 2e-2
     encoder_ent_coeff = 2e-4
@@ -124,12 +124,12 @@ def train(ctxt):
                      optimizer_args=dict(
                          batch_size=32,
                          max_optimization_epochs=10,
-                         learning_rate=1e-3,
+                         learning_rate=config.policy_optimizer_lr,
                      ),
                      inference_optimizer_args=dict(
                          batch_size=32,
                          max_optimization_epochs=10,
-                         learning_rate=1e-3,
+                         learning_rate=config.inference_optimizer_lr,
                      ),
                      center_adv=True,
                      stop_ce_gradient=True)

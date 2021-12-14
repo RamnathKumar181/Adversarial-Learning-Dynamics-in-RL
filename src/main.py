@@ -1,5 +1,8 @@
 import argparse
-from src.trainer import Trainer
+from src.trainer import Trainer, Tester
+from glob import glob
+import logging
+import wandb
 
 
 def parse_args():
@@ -46,4 +49,13 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    Trainer(args)
+    wandb.init(project='Task_Structure', entity='td_ml', config=args, settings=wandb.Settings(start_method='thread'),
+               name=args.exp_name, reinit=False)
+    logging.info(args)
+    if args.train:
+        Trainer(args)
+    else:
+        for run, config_file in enumerate(glob(f'{args.snapshot_dir}/*/params.pkl')):
+            args.folder = config_file
+            logging.info(config_file)
+            Tester(args)

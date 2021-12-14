@@ -15,7 +15,6 @@ from garage.tf.algos.te import TaskEmbeddingWorker
 from garage.tf.embeddings import GaussianMLPEncoder
 from garage.tf.policies import GaussianMLPTaskEmbeddingPolicy
 from garage.trainer import TFTrainer
-import wandb
 
 
 def circle(r, n):
@@ -165,16 +164,10 @@ def train(ctxt):
 
         trainer.setup(algo, env)
         trainer.train(n_epochs=config.epochs, batch_size=batch_size, plot=False)
-        # for t in range(len(TASKS)):
-        #     path = rollout(task_envs[t], policy, animated=True, deterministic=True)
-        #     print(path)
 
 
 def train_te_ppo_pointenv(args):
     global config
     config = args
-    wandb.init(project='Task_Structure', entity='td_ml', config=args, settings=wandb.Settings(start_method='thread'),
-               name=config.exp_name, reinit=False)
-    print(args)
     train({'log_dir': args.snapshot_dir,
            'use_existing_dir': True})

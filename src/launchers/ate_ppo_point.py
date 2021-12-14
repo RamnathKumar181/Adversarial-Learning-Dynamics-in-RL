@@ -169,8 +169,7 @@ def train(ctxt):
                       stop_ce_gradient=True,
                       num_embedding_itr=1,
                       num_policy_itr=10,
-                      num_inference_itr=5,
-                      threshold=150)
+                      num_inference_itr=5)
 
         trainer.setup(algo, env)
         trainer.train(n_epochs=config.epochs, batch_size=batch_size, plot=True)

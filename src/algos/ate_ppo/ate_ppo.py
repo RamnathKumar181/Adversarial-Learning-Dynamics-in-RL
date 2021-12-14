@@ -79,7 +79,6 @@ class ATEPPO(ATENPO):
                  num_embedding_itr=20,
                  num_policy_itr=30,
                  num_inference_itr=30,
-                 threshold=150,
                  name='PPOTaskEmbedding'):
 
         policy_optimizer = policy_optimizer or FirstOrderOptimizer
@@ -121,5 +120,4 @@ class ATEPPO(ATENPO):
                          num_embedding_itr=num_embedding_itr,
                          num_policy_itr=num_policy_itr,
                          num_inference_itr=num_inference_itr,
-                         threshold=threshold,
                          name=name)

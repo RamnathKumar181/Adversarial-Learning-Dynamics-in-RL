@@ -235,13 +235,6 @@ class ATENPO(RLAlgorithm):
             last_return = self._train_once(trainer.step_itr,
                                            trainer.step_episode)
             trainer.step_itr += 1
-            # if trainer.step_itr % self.threshold == 0:
-            #     print(trainer.step_itr)
-            #     print("was here")
-            #     self._policy_optimizer._learning_rate /= 10
-            #     self._encoder_optimizer._learning_rate /= 10
-            #     self._inference_optimizer._learning_rate /= 10
-            #     self._init_opt()
             if self.best_return is None or self.best_return < last_return:
                 self.best_return = last_return
         print(f"Best return using policy: {self.best_return}")
@@ -647,6 +640,7 @@ class ATENPO(RLAlgorithm):
                 #     encoder_entropy = tf.nn.softplus(
                 #         encoder_all_task_entropies)
                 # enc = tf.add(cond_encoder_entropy, encoder_entropy)
+
                 latent = enc_dist.sample(
                     seed=deterministic.get_tf_seed_stream())
                 mean_distribution = tf.add(latent, i.task_var)
