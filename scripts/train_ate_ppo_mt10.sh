@@ -13,4 +13,4 @@ module load mujoco/2.0
 module load mujoco-py
 
 cd ..
-python -m src.main --exp_name ate_ppo_mt10 --algo ate_ppo --epochs 50 --train --env mt10
+python -m src.main --exp_name ate_ppo_mt10_limit_encoder_opt --algo ate_ppo --train --env mt10

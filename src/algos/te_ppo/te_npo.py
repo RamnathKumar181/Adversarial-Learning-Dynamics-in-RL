@@ -249,8 +249,8 @@ class TENPO(RLAlgorithm):
         logger.log('Optimizing policy...')
         self._optimize_policy(itr, episodes, baselines, embed_eps,
                               embed_ep_infos)
-        wandb.log({'Average_Return': average_return})
-
+        wandb.log({'Average_Return': average_return,
+                   'Success_Rate': tabular.as_primitive_dict['Evaluation/SuccessRate']})
         return average_return
 
     def _optimize_policy(self, itr, episodes, baselines, embed_eps,

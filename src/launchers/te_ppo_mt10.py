@@ -37,7 +37,6 @@ def train(ctxt):
     mt10 = metaworld.MT10()
     train_task_sampler = MetaWorldTaskSampler(mt10,
                                               'train',
-                                              lambda env, _: normalize(env),
                                               add_env_onehot=False)
 
     envs = [env_up() for env_up in train_task_sampler.sample(10)]
@@ -45,18 +44,18 @@ def train(ctxt):
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
 
-    latent_length = 10
-    inference_window = 10
-    batch_size = 1024 * len(envs)
+    latent_length = 4
+    inference_window = 6
+    batch_size = 5000 * len(envs)
     policy_ent_coeff = 2e-2
-    encoder_ent_coeff = 2e-4
+    encoder_ent_coeff = 2e-2
     inference_ce_coeff = 5e-2
     embedding_init_std = 0.1
     embedding_max_std = 0.2
     embedding_min_std = 1e-6
     policy_init_std = 1.0
-    policy_max_std = None
-    policy_min_std = None
+    policy_max_std = 1.5
+    policy_min_std = 0.5
 
     with TFTrainer(snapshot_config=ctxt) as trainer:
         task_embed_spec = TEPPO.get_encoder_spec(env.task_space,
@@ -127,7 +126,7 @@ def train(ctxt):
                          learning_rate=config.policy_optimizer_lr,
                      ),
                      inference_optimizer_args=dict(
-                         batch_size=32,
+                         batch_size=64,
                          max_optimization_epochs=10,
                          learning_rate=config.inference_optimizer_lr,
                      ),
@@ -135,13 +134,11 @@ def train(ctxt):
                      stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=config.epochs, batch_size=batch_size, plot=True)
+        trainer.train(n_epochs=4000, batch_size=batch_size, plot=True)
 
 
 def train_te_ppo_mt10(args):
     global config
     config = args
-    wandb.init(project='Task_Structure', entity='td_ml', config=args, settings=wandb.Settings(start_method='thread'),
-               name=config.exp_name, reinit=False)
     train({'log_dir': args.snapshot_dir,
            'use_existing_dir': True})

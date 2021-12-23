@@ -14,4 +14,4 @@ module load mujoco/2.0
 module load mujoco-py
 
 cd ..
-python -m src.main --exp_name ate_ppo_point --algo ate_ppo --epochs 5 --train --policy_optimizer_lr 1e-4 --encoder_optimizer_lr 1e-4
+python -m src.main --exp_name ate_ppo_point --algo ate_ppo --epochs 600 --train --policy_optimizer_lr 1e-4 --encoder_optimizer_lr 1e-4

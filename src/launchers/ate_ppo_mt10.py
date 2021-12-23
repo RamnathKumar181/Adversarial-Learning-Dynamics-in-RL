@@ -46,16 +46,16 @@ def train(ctxt):
                           mode='vanilla')
     latent_length = 10
     inference_window = 6
-    batch_size = 1024 * len(envs)
+    batch_size = 5000 * len(envs)
     policy_ent_coeff = 2e-2
-    encoder_ent_coeff = 5e2
+    encoder_ent_coeff = 2e-2
     inference_ce_coeff = 5e-2
     embedding_init_std = 0.1
     embedding_max_std = 0.2
     embedding_min_std = 1e-6
     policy_init_std = 1.0
-    policy_max_std = None
-    policy_min_std = None
+    policy_max_std = 1.5
+    policy_min_std = 0.5
 
     with TFTrainer(snapshot_config=ctxt) as trainer:
         task_embed_spec = ATEPPO.get_encoder_spec(env.task_space,
@@ -81,7 +81,7 @@ def train(ctxt):
         inference = GaussianMLPEncoder(
             name='inference',
             embedding_spec=traj_embed_spec,
-            hidden_sizes=(20, 20),
+            hidden_sizes=(20, 10),
             std_share_network=True,
             init_std=0.1,
             output_nonlinearity=tf.nn.tanh,
@@ -93,7 +93,7 @@ def train(ctxt):
             name='policy',
             env_spec=env.spec,
             encoder=task_encoder,
-            hidden_sizes=(32, 16),
+            hidden_sizes=(32, 32),
             std_share_network=True,
             max_std=policy_max_std,
             init_std=policy_init_std,
@@ -123,32 +123,30 @@ def train(ctxt):
                       encoder_optimizer_args=dict(
                           batch_size=32,
                           max_optimization_epochs=10,
-                          learning_rate=1e-3,
+                          learning_rate=5e-4,
                       ),
                       policy_optimizer_args=dict(
-                          batch_size=32,
+                          batch_size=64,
                           max_optimization_epochs=10,
-                          learning_rate=1e-3,
+                          learning_rate=5e-4,
                       ),
                       inference_optimizer_args=dict(
                           batch_size=32,
                           max_optimization_epochs=10,
-                          learning_rate=1e-3,
+                          learning_rate=5e-4,
                       ),
                       center_adv=True,
                       stop_ce_gradient=True,
-                      num_embedding_itr=40,
-                      num_policy_itr=80,
-                      num_inference_itr=40)
+                      num_embedding_itr=1,
+                      num_policy_itr=10,
+                      num_inference_itr=5)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=config.epochs, batch_size=batch_size, plot=True)
+        trainer.train(n_epochs=4000, batch_size=batch_size, plot=False)
 
 
 def train_ate_ppo_mt10(args):
     global config
     config = args
-    wandb.init(project='Task_Structure', entity='td_ml', config=args, settings=wandb.Settings(start_method='thread'),
-               name=config.exp_name, reinit=False)
     train({'log_dir': args.snapshot_dir,
            'use_existing_dir': True})

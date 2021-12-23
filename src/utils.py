@@ -1,6 +1,11 @@
 from src.launchers import train_te_ppo_pointenv, train_ate_ppo_pointenv
-from src.launchers import train_te_ppo_mt10, train_ate_ppo_mt10
+from src.launchers import train_te_ppo_mt5, train_ate_ppo_mt5
+# from src.launchers import train_te_ppo_mt10, train_ate_ppo_mt10
+from src.launchers import train_te_ppo_mt1, train_ate_ppo_mt1
 import numpy as np
+import os
+import torch
+import random
 
 
 def stack_tensor_dict_list(tensor_dict_list):
@@ -27,15 +32,34 @@ def stack_tensor_dict_list(tensor_dict_list):
     return ret
 
 
+def seed_everything(seed=0):
+    """Set random seed"""
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
 def get_benchmark_by_name(algo_name, env_name):
     if algo_name == "te_ppo":
         if env_name == "point_mass":
             algo = train_te_ppo_pointenv
+        if env_name == "mt5":
+            algo = train_te_ppo_mt5
         if env_name == "mt10":
             algo = train_te_ppo_mt10
+        if env_name == "mt1":
+            algo = train_te_ppo_mt1
     elif algo_name == "ate_ppo":
         if env_name == "point_mass":
             algo = train_ate_ppo_pointenv
+        if env_name == "mt5":
+            algo = train_ate_ppo_mt5
         if env_name == "mt10":
             algo = train_ate_ppo_mt10
+        if env_name == "mt1":
+            algo = train_ate_ppo_mt1
     return algo

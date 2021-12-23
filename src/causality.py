@@ -1,11 +1,12 @@
 import numpy as np
 import copy
-from src.utils import stack_tensor_dict_list
 import torch
 import torch.autograd as autograd
+import tensorflow as tf
+from garage.experiment import deterministic
 
 
-def get_action_given_latent(policy, observation, latent):
+def get_action_given_latent(policy, observation, latent, network):
     """Sample an action given observation and latent.
     Args:
         observation (np.ndarray): Observation from the environment,
@@ -26,56 +27,66 @@ def get_action_given_latent(policy, observation, latent):
     flat_obs = np.expand_dims([flat_obs], 1)
     flat_latent = policy.latent_space.flatten(latent)
     flat_latent = np.expand_dims([flat_latent], 1)
-    sample, mean, log_std = policy._f_dist_obs_latent(flat_obs, flat_latent)
+    print(flat_obs, flat_latent)
+    sample, mean, log_std = network(flat_obs, flat_latent)
     sample = policy.action_space.unflatten(np.squeeze(sample, 1)[0])
     mean = policy.action_space.unflatten(np.squeeze(mean, 1)[0])
     log_std = policy.action_space.unflatten(np.squeeze(log_std, 1)[0])
     return sample, dict(mean=mean, log_std=log_std)
 
+def get_grad_network(policy, tape):
+    obs_input = tf.compat.v1.placeholder(tf.float32,
+                                             shape=(None, None, policy.obs_dim))
 
-def get_path(env,
-             agent,
-             z,
-             max_path_length=np.inf,
-             animated=False,
-             speedup=1,
-             always_return_paths=False):
+    latent_input = tf.compat.v1.placeholder(
+        tf.float32, shape=(None, None, policy._encoder.output_dim))
+    with tf.compat.v1.variable_scope('concat_obs_latent'):
+            obs_latent_input = tf.concat([obs_input, latent_input], -1)
+            tape.watch(obs_latent_input[-1])
+    dist, mean_var,log_std_var = super(type(policy),policy).build(
+        obs_latent_input,
+        # Must named 'default' to
+        # compensate tf default worker
+        name='given_latent').outputs
+    _f_dist_obs_latent_grad = tf.compat.v1.get_default_session(
+        ).make_callable([
+            dist.sample(seed=deterministic.get_tf_seed_stream()), mean_var,
+            log_std_var, obs_latent_input[-1]
+        ],
+                        feed_list=[obs_input, latent_input])
 
-    env_steps = []
-    agent_infos = []
-    observations = []
+    return _f_dist_obs_latent_grad
+
+def get_rewards(env,
+                agent,
+                z,
+                max_path_length=np.inf,
+                network=None,
+                animated=False,
+                speedup=1,
+                always_return_paths=False):
+
+    rewards = tf.variable(0)
     last_obs, episode_infos = env.reset()
     agent.reset()
     episode_length = 0
-    if animated:
-        env.visualize()
     while episode_length < (max_path_length or np.inf):
-        a, agent_info = agent.get_action_given_latent(last_obs, z.data)
+        a, agent_info = get_action_given_latent(agent, last_obs, z, network)
         a = agent_info['mean']
         es = env.step(a)
-        env_steps.append(es)
-        observations.append(last_obs)
-        agent_infos.append(agent_info)
+        rewards += tf.variable(es.reward)
         episode_length += 1
         if es.last:
             break
         last_obs = es.observation
-
-    return dict(
-        episode_infos=episode_infos,
-        observations=np.array(observations),
-        actions=np.array([es.action for es in env_steps]),
-        rewards=np.array([es.reward for es in env_steps]),
-        agent_infos=stack_tensor_dict_list(agent_infos),
-        env_infos=stack_tensor_dict_list([es.env_info for es in env_steps]),
-        dones=np.array([es.terminal for es in env_steps]),
-    )
+    return rewards
 
 
-def plot_ace(X, mu, num_c, policy, env, baseline, min, max, num_alpha=1000):
+def plot_ace(X, mu, num_c, policy, env, min, max, num_alpha=1000):
     final = []
     cov = np.cov(X, rowvar=False)
     means = mu
+    network=None
     cov = np.array(cov)
     mean_vector = np.array(means)
     for t in range(0, num_c):
@@ -83,30 +94,35 @@ def plot_ace(X, mu, num_c, policy, env, baseline, min, max, num_alpha=1000):
         inp = copy.deepcopy(mean_vector)
         for x in np.linspace(min, max, num_alpha):
             inp[t] = x
-            input_torchvar = autograd.Variable(torch.FloatTensor(inp),
-                                               requires_grad=True)
-            paths = get_path(agent=policy,
-                             env=env,
-                             z=input_torchvar,
-                             max_path_length=env.spec.max_episode_length)
-            featmat = np.concatenate([baseline._features(path) for path in paths])
-            returns = np.concatenate([path['returns'] for path in paths])
+            input_torchvar = inp
 
-            print(output)
+            last_obs, episode_infos = env.reset()
+            flat_obs = policy.observation_space.flatten(last_obs)
+            flat_obs = np.expand_dims([flat_obs], 1)
+            flat_latent = policy.latent_space.flatten(input_torchvar.data)
+            flat_latent = np.expand_dims([flat_latent], 1)
+            with tf.GradientTape() as tape:
+                if network is None:
+                    network = get_grad_network(policy, tape)
+                _,output,_, input_target=network(flat_obs, flat_latent)
+                # output = get_rewards(agent=policy,
+                #                      env=env,
+                #                      z=input_torchvar.data,
+                #                      max_path_length=env.spec.max_episode_length,
+                #                      network=network)
+                print(output, input_target)
+                output = tf.convert_to_tensor(output, dtype=tf.float32)
+                print(type(input_target), type(output))
+                first_grads = tape.gradient(output, input_target)
+            print(first_grads)
             o1 = output.data.cpu()
             val = o1.numpy()[0]
             grad_mask_gradient = torch.zeros(1)
             grad_mask_gradient[0] = 1.0
-            first_grads = torch.autograd.grad(output.cpu(), input_torchvar.cpu(
-            ), grad_outputs=grad_mask_gradient, retain_graph=True,
-                create_graph=True)
+            # first_grads = torch.autograd.grad(output.cpu(), input_torchvar.cpu(
+            # ), grad_outputs=grad_mask_gradient, retain_graph=True,
+            #     create_graph=True)
             # input_torchvar = tf.Variable(inp)
-            # with tf.GradientTape() as tape:
-            #     output = get_rewards(agent=policy,
-            #                          env=env,
-            #                          z=input_torchvar,
-            #                          max_path_length=env.spec.max_episode_length)
-            #     first_grads = tape.gradient(output, input_torchvar)
             for dimension in range(0, num_c):  # Tr(Hessian*Covariance)
                 if dimension == t:
                     continue

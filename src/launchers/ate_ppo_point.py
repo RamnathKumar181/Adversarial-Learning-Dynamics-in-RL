@@ -61,7 +61,7 @@ def train(ctxt):
         batch_size_per_task (int): Batch size of samples for each task.
 
     """
-    set_seed(config.seed)
+    set_seed(1)
 
     tasks = TASKS
     latent_length = 4
@@ -169,7 +169,7 @@ def train(ctxt):
                       stop_ce_gradient=True,
                       num_embedding_itr=1,
                       num_policy_itr=10,
-                      num_inference_itr=5)
+                      num_inference_itr=5,)
 
         trainer.setup(algo, env)
         trainer.train(n_epochs=config.epochs, batch_size=batch_size, plot=True)
@@ -178,7 +178,5 @@ def train(ctxt):
 def train_ate_ppo_pointenv(args):
     global config
     config = args
-    wandb.init(project='Task_Structure', entity='td_ml', config=args, settings=wandb.Settings(start_method='thread'),
-               name=config.exp_name, reinit=False)
     train({'log_dir': args.snapshot_dir,
            'use_existing_dir': True})

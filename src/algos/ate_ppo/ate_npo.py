@@ -149,7 +149,8 @@ class ATENPO(RLAlgorithm):
 
         with self._name_scope:
             self._policy_optimizer = policy_optimizer(**policy_optimizer_args)
-            self._encoder_optimizer = encoder_optimizer(**encoder_optimizer_args)
+            self._encoder_optimizer = encoder_optimizer(
+                **encoder_optimizer_args)
             self._lr_clip_range = float(lr_clip_range)
             self._max_kl_step = float(max_kl_step)
             self._policy_ent_coeff = float(policy_ent_coeff)
@@ -194,10 +195,12 @@ class ATENPO(RLAlgorithm):
         self._inference_opt_inputs = infer_opt_inputs
 
         # Jointly optimize policy and encoder network
-        encoder_loss, pol_loss, pol_kl, embed_kl = self._build_policy_loss(pol_loss_inputs)
+        encoder_loss, pol_loss, pol_kl, embed_kl = self._build_policy_loss(
+            pol_loss_inputs)
         self._policy_optimizer.update_opt(loss=pol_loss,
                                           target=self.policy,
-                                          leq_constraint=(pol_kl, self._max_kl_step),
+                                          leq_constraint=(
+                                              pol_kl, self._max_kl_step),
                                           inputs=flatten_inputs(
                                               self._policy_opt_inputs),
                                           constraint_name='mean_kl')
@@ -277,7 +280,8 @@ class ATENPO(RLAlgorithm):
         logger.log('Optimizing policy...')
         self._optimize_policy(itr, episodes, baselines, embed_eps,
                               embed_ep_infos)
-        wandb.log({'Average_Return': average_return})
+        wandb.log({'Average_Return': average_return,
+                   'Success_Rate': tabular.as_primitive_dict['Evaluation/SuccessRate']})
         return average_return
 
     def _optimize_policy(self, itr, episodes, baselines, embed_eps,
@@ -534,9 +538,9 @@ class ATENPO(RLAlgorithm):
 
         # Augment the path rewards with entropy terms
         with tf.name_scope('augmented_rewards'):
-            rewards = (i.reward_var -
-                       (self.inference_ce_coeff * inference_ce) +
-                       (self._policy_ent_coeff * policy_entropy))
+            rewards = (i.reward_var
+                       - (self.inference_ce_coeff * inference_ce)
+                       + (self._policy_ent_coeff * policy_entropy))
 
         with tf.name_scope('policy_loss'):
             with tf.name_scope('advantages'):
@@ -628,23 +632,23 @@ class ATENPO(RLAlgorithm):
             # 1. Encoder distribution total entropy
             with tf.name_scope('encoder_entropy'):
                 # TODO: Add jsd loss here
-                # encoder_dist, _, _ = self.policy.encoder.build(
-                #     i.task_var, name='encoder_entropy').outputs
-                # cond_encoder_all_task_entropies = -encoder_dist.log_prob(
-                #     i.latent_var)
-                # encoder_all_task_entropies = encoder_dist.entropy()
+                encoder_dist, _, _ = self.policy.encoder.build(
+                    i.task_var, name='encoder_entropy').outputs
+                cond_encoder_all_task_entropies = -encoder_dist.log_prob(
+                    i.latent_var)
+                encoder_all_task_entropies = encoder_dist.entropy()
 
-                # if self._use_softplus_entropy:
-                #     cond_encoder_entropy = tf.nn.softplus(
-                #         cond_encoder_all_task_entropies)
-                #     encoder_entropy = tf.nn.softplus(
-                #         encoder_all_task_entropies)
-                # enc = tf.add(cond_encoder_entropy, encoder_entropy)
+                if self._use_softplus_entropy:
+                    cond_encoder_entropy = tf.nn.softplus(
+                        cond_encoder_all_task_entropies)
+                    encoder_entropy = tf.nn.softplus(
+                        encoder_all_task_entropies)
+                jsd = tf.add(cond_encoder_entropy, encoder_entropy)
 
-                latent = enc_dist.sample(
-                    seed=deterministic.get_tf_seed_stream())
-                mean_distribution = tf.add(latent, i.task_var)
-                jsd = get_jsd(latent, i.task_var, mean_distribution)
+                # latent = enc_dist.sample(
+                #     seed=deterministic.get_tf_seed_stream())
+                # mean_distribution = tf.add(latent, i.task_var)
+                # jsd = get_jsd(latent, i.task_var, mean_distribution)
                 encoder_entropy = tf.reduce_mean(jsd,
                                                  name='encoder_entropy')
 
@@ -898,8 +902,8 @@ class ATENPO(RLAlgorithm):
 
         aug_average_discounted_return = (np.mean(
             [ret[0] for ret in returns_tensor]))
-        d_returns = np.mean(aug_average_discounted_return -
-                            env_average_discounted_return)
+        d_returns = np.mean(aug_average_discounted_return
+                            - env_average_discounted_return)
         tabular.record('{}/EntReturns'.format(self.policy.name), d_returns)
 
         # Calculate explained variance
@@ -982,8 +986,10 @@ class ATENPO(RLAlgorithm):
 
         logger.log('Computing loss after')
         loss_after = self._encoder_optimizer.loss(policy_opt_input_values)
-        tabular.record('{}/Encoder/LossBefore'.format(self.policy.name), loss_before)
-        tabular.record('{}/Encoder/LossAfter'.format(self.policy.name), loss_after)
+        tabular.record(
+            '{}/Encoder/LossBefore'.format(self.policy.name), loss_before)
+        tabular.record(
+            '{}/Encoder/LossAfter'.format(self.policy.name), loss_after)
         tabular.record('{}/Encoder/dLoss'.format(self.policy.name),
                        loss_before - loss_after)
         tabular.record('{}/Encoder/KLBefore'.format(self.policy.name),

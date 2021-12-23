@@ -15,6 +15,7 @@ from garage.tf.algos.te import TaskEmbeddingWorker
 from garage.tf.embeddings import GaussianMLPEncoder
 from garage.tf.policies import GaussianMLPTaskEmbeddingPolicy
 from garage.trainer import TFTrainer
+import wandb
 
 
 def circle(r, n):
@@ -60,8 +61,7 @@ def train(ctxt):
         batch_size_per_task (int): Batch size of samples for each task.
 
     """
-    set_seed(config.seed)
-    print(config)
+    set_seed(1)
     tasks = TASKS
     latent_length = 2
     inference_window = 6
@@ -152,12 +152,12 @@ def train(ctxt):
                      optimizer_args=dict(
                          batch_size=32,
                          max_optimization_epochs=10,
-                         learning_rate=config.policy_optimizer_lr,
+                         learning_rate=1e-4,
                      ),
                      inference_optimizer_args=dict(
                          batch_size=32,
                          max_optimization_epochs=10,
-                         learning_rate=config.inference_optimizer_lr,
+                         learning_rate=1e-3,
                      ),
                      center_adv=True,
                      stop_ce_gradient=True)
@@ -171,3 +171,4 @@ def train_te_ppo_pointenv(args):
     config = args
     train({'log_dir': args.snapshot_dir,
            'use_existing_dir': True})
+    print(args)

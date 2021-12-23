@@ -16,7 +16,7 @@ def parse_args():
                         default='te_ppo',
                         help='Algorithm to be used (default: te_ppo).')
     parser.add_argument('--env', type=str,
-                        choices=['point_mass', 'mt10'],
+                        choices=['point_mass', 'mt5', 'mt1', 'mt10'],
                         default='point_mass',
                         help='Environment to be used (default: point_mass).')
     parser.add_argument('--train', action='store_true',
@@ -29,6 +29,9 @@ def parse_args():
                         help='Path to save the log and iteration snapshot.')
     parser.add_argument('--exp_name', type=str, default=None,
                         help='Experiment name'
+                        '(default: None).')
+    parser.add_argument('--metaworld_task_name', type=str, default=None,
+                        help='Individual Task name for Metaworld experiment'
                         '(default: None).')
     parser.add_argument('--policy_optimizer_lr', type=float, default=1e-3,
                         help='Learning rate of policy optimizer (default: 1e-3)')

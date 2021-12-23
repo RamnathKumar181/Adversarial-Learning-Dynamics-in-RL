@@ -1,4 +1,4 @@
-from src.utils import get_benchmark_by_name
+from src.utils import get_benchmark_by_name, seed_everything
 import os
 import time
 import tensorflow as tf
@@ -9,7 +9,6 @@ import numpy as np
 import joblib
 from garage import rollout
 from src.causality import plot_ace
-
 
 def get_z_dist(t, policy):
     """ Get the latent distribution for a task """
@@ -26,6 +25,7 @@ class Trainer():
         self._build()
 
     def _build(self):
+        seed_everything()
         self._create_config_file()
         train_function = get_benchmark_by_name(algo_name=self.args.algo,
                                                env_name=self.args.env,)
@@ -55,7 +55,6 @@ class Tester():
         snapshot = joblib.load(self.args.folder)
         self.env = snapshot["env"]
         self.policy = snapshot["algo"].policy
-        self.baseline = snapshot["algo"]._baseline
 
         # Tasks and goals
         self.num_tasks = self.policy.task_space.flat_dim
@@ -129,7 +128,6 @@ class Tester():
                            num_c=self.num_latents,
                            policy=self.policy,
                            env=self.env._task_envs[task],
-                           baseline=self.baseline,
                            min=min(self.latent_mins),
                            max=max(self.latent_maxs))
             print("Plotted ace")
