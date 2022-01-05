@@ -10,6 +10,7 @@ import joblib
 from garage import rollout
 from src.causality import plot_ace
 
+
 def get_z_dist(t, policy):
     """ Get the latent distribution for a task """
     onehot = np.zeros(policy.task_space.shape, dtype=np.float32)
@@ -28,7 +29,7 @@ class Trainer():
         seed_everything()
         self._create_config_file()
         train_function = get_benchmark_by_name(algo_name=self.args.algo,
-                                               env_name=self.args.env,)
+                                               env_name=self.args.env)
         train_function(self.args)
 
     def _create_config_file(self):
@@ -59,7 +60,8 @@ class Tester():
         # Tasks and goals
         self.num_tasks = self.policy.task_space.flat_dim
         # Embedding distributions
-        self.z_dists = [get_z_dist(t, self.policy) for t in range(self.num_tasks)]
+        self.z_dists = [get_z_dist(t, self.policy)
+                        for t in range(self.num_tasks)]
         self._z = np.array([d[0] for d in self.z_dists])
         self.z_means = np.array([d[1] for d in self.z_dists])
         self.z_stds = np.array([d[2] for d in self.z_dists])
@@ -68,7 +70,9 @@ class Tester():
     def _plot_latents(self):
         fig = plt.figure(figsize=(13, 6))
         lr_grid = gridspec.GridSpec(1, 1)
-        em_grid = gridspec.GridSpecFromSubplotSpec(self.num_latents, 1, subplot_spec=lr_grid[0])
+        em_grid = gridspec.GridSpecFromSubplotSpec(
+            self.num_latents, 1, subplot_spec=lr_grid[0])
+
         def colormap(x): return matplotlib.cm.get_cmap("Set1")(x)
         self.task_cmap = [colormap(task / (self.num_tasks-1.) * 0.5)
                           for task in range(self.num_tasks)]
@@ -82,11 +86,13 @@ class Tester():
                 sigma = self.z_stds[task, d]
 
                 xs = np.linspace(self.latent_mins[d], self.latent_maxs[d], 100)
-                ys = ((1 / (np.sqrt(2 * np.pi) * sigma)) *
-                      np.exp(-0.5 * (1 / sigma * (xs - mu)) ** 2))
+                ys = ((1 / (np.sqrt(2 * np.pi) * sigma))
+                      * np.exp(-0.5 * (1 / sigma * (xs - mu)) ** 2))
 
-                em_ax.plot(xs, ys, color=self.task_cmap[task], label=f'Task: {task}')
-                em_ax.fill_between(xs, np.zeros_like(xs), ys, color=self.task_cmap[task], alpha=.1)
+                em_ax.plot(
+                    xs, ys, color=self.task_cmap[task], label=f'Task: {task}')
+                em_ax.fill_between(xs, np.zeros_like(
+                    xs), ys, color=self.task_cmap[task], alpha=.1)
             em_ax.legend()
 
             fig.add_subplot(em_ax)
@@ -119,9 +125,10 @@ class Tester():
             for d in range(self.num_latents):
                 mu = self.z_means[task, d]
                 sigma = self.z_stds[task, d]
-                xs = np.linspace(self.latent_mins[d], self.latent_maxs[d], 1024)
-                ys = ((1 / (np.sqrt(2 * np.pi) * sigma)) *
-                      np.exp(-0.5 * (1 / sigma * (xs - mu)) ** 2))
+                xs = np.linspace(
+                    self.latent_mins[d], self.latent_maxs[d], 1024)
+                ys = ((1 / (np.sqrt(2 * np.pi) * sigma))
+                      * np.exp(-0.5 * (1 / sigma * (xs - mu)) ** 2))
                 X[:, d] = ys
             ace = plot_ace(X=X,
                            mu=self.z_means[task],

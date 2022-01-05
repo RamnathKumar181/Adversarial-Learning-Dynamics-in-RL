@@ -23,13 +23,6 @@ from garage.tf.policies import TaskEmbeddingPolicy
 # yapf: enable
 
 
-@tf.function
-def get_jsd(dis1, dis2, mean_dis):
-    kl = tf.keras.losses.KLDivergence()
-    jsd = 0.5*kl(dis1, mean_dis) + 0.5*kl(dis2, mean_dis)
-    return jsd
-
-
 class ATENPO(RLAlgorithm):
     """Natural Policy Optimization with Task Embeddings.
 
@@ -280,8 +273,13 @@ class ATENPO(RLAlgorithm):
         logger.log('Optimizing policy...')
         self._optimize_policy(itr, episodes, baselines, embed_eps,
                               embed_ep_infos)
-        wandb.log({'Average_Return': average_return,
-                   'Success_Rate': tabular.as_primitive_dict['Evaluation/SuccessRate']})
+        try:
+            wandb.log({'Average_Return': tabular.as_primitive_dict['Evaluation/AverageReturn'],
+                       'Success_Rate': tabular.as_primitive_dict['Evaluation/SuccessRate']})
+            # wandb.log(tabular.as_primitive_dict)
+        except Exception:
+            wandb.log(
+                {'Average_Return': tabular.as_primitive_dict['Evaluation/AverageReturn']})
         return average_return
 
     def _optimize_policy(self, itr, episodes, baselines, embed_eps,
@@ -297,26 +295,21 @@ class ATENPO(RLAlgorithm):
 
         """
         del itr
-
         policy_opt_input_values = self._policy_opt_input_values(
             episodes, baselines, embed_eps)
         inference_opt_input_values = self._inference_opt_input_values(
             episodes, embed_eps, embed_ep_infos)
 
-        # TODO: Work here
         # Embedding network
-        for _ in range(self.num_embedding_itr):
-            self._train_encoder_network(policy_opt_input_values)
+        self._train_encoder_network(policy_opt_input_values)
 
         # Policy Network
-        for _ in range(self.num_policy_itr):
-            # encoder_weights = self.policy.encoder.get_param_values()
-            self._train_policy_network(policy_opt_input_values)
-            # self.policy.encoder.set_param_values(encoder_weights)
+        # encoder_weights = self.policy.encoder.get_param_values()
+        self._train_policy_network(policy_opt_input_values)
+        # self.policy.encoder.set_param_values(encoder_weights)
 
         # Inference Network
-        for _ in range(self.num_inference_itr):
-            self._train_inference_network(inference_opt_input_values)
+        self._train_inference_network(inference_opt_input_values)
 
         # paths = samples_data['paths']
         fit_paths = self._evaluate(policy_opt_input_values, episodes,
@@ -574,7 +567,6 @@ class ATENPO(RLAlgorithm):
                 # Clip early to avoid overflow
                 lr = tf.exp(
                     tf.minimum(ll - old_ll, np.log(1 + self._lr_clip_range)))
-
                 surrogate = lr * adv
 
                 surrogate = tf.debugging.check_numerics(surrogate,
@@ -634,16 +626,18 @@ class ATENPO(RLAlgorithm):
                 # TODO: Add jsd loss here
                 encoder_dist, _, _ = self.policy.encoder.build(
                     i.task_var, name='encoder_entropy').outputs
-                cond_encoder_all_task_entropies = -encoder_dist.log_prob(
+                cond_encoder_all_task_entropies = encoder_dist.log_prob(
                     i.latent_var)
                 encoder_all_task_entropies = encoder_dist.entropy()
 
+                jsd = tf.add(cond_encoder_all_task_entropies,
+                             encoder_all_task_entropies)
                 if self._use_softplus_entropy:
-                    cond_encoder_entropy = tf.nn.softplus(
-                        cond_encoder_all_task_entropies)
-                    encoder_entropy = tf.nn.softplus(
-                        encoder_all_task_entropies)
-                jsd = tf.add(cond_encoder_entropy, encoder_entropy)
+                    # cond_encoder_entropy = tf.nn.softplus(
+                    #     cond_encoder_all_task_entropies)
+                    # encoder_entropy = tf.nn.softplus(
+                    #     encoder_all_task_entropies)
+                    jsd = tf.nn.softplus(jsd)
 
                 # latent = enc_dist.sample(
                 #     seed=deterministic.get_tf_seed_stream())
@@ -959,6 +953,7 @@ class ATENPO(RLAlgorithm):
                 samples = norm.rvs(100)
                 hist = Histogram(samples)
                 tabular.record('Encoder/task={},i={}'.format(task, i), hist)
+            print(f"Latent for task {task}: {latent_infos['mean'][task]}")
 
     def _train_encoder_network(self, policy_opt_input_values):
         """Optimization of encoder networks.
@@ -978,7 +973,7 @@ class ATENPO(RLAlgorithm):
         logger.log('Computing KL before')
         embed_kl_before = self._f_encoder_kl(*policy_opt_input_values)
 
-        logger.log('Optimizing')
+        logger.log('Optimizing Embbedding Network...')
         self._encoder_optimizer.optimize(policy_opt_input_values)
 
         logger.log('Computing KL after')
@@ -1016,7 +1011,7 @@ class ATENPO(RLAlgorithm):
         logger.log('Computing KL before')
         policy_kl_before = self._f_policy_kl(*policy_opt_input_values)
 
-        logger.log('Optimizing')
+        logger.log('Optimizing Policy Network...')
         self._policy_optimizer.optimize(policy_opt_input_values)
 
         logger.log('Computing KL after')

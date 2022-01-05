@@ -16,11 +16,19 @@ def parse_args():
                         default='te_ppo',
                         help='Algorithm to be used (default: te_ppo).')
     parser.add_argument('--env', type=str,
-                        choices=['point_mass', 'mt5', 'mt1', 'mt10'],
+                        choices=['point_mass', 'mt5',
+                                 'mt1', 'mt10', 'navigation', 'bandit'],
                         default='point_mass',
                         help='Environment to be used (default: point_mass).')
     parser.add_argument('--train', action='store_true',
                         help='Train the model (default: False).')
+    parser.add_argument('--mt1_env_num', type=int,
+                        choices=[0, 1, 2, 3, 4],
+                        default=0,
+                        help='MT1 env to be used '
+                        '(default: 0).')
+    parser.add_argument('--sweep', action='store_true',
+                        help='Sweep the model (default: False).')
     parser.add_argument('--epochs', type=int, default=600,
                         help='Number of epochs to run for (default: 600)')
     parser.add_argument('--batch_size_per_task', type=int, default=1024,
@@ -39,6 +47,10 @@ def parse_args():
                         help='Learning rate of encoder optimizer (default: 1e-3)')
     parser.add_argument('--inference_optimizer_lr', type=float, default=1e-3,
                         help='Learning rate of inference optimizer (default: 1e-3)')
+    parser.add_argument('--policy_ent_coeff', type=float, default=1e-3,
+                        help='Policy_ent_coeff (default: 1e-3)')
+    parser.add_argument('--encoder_ent_coeff', type=float, default=1e-3,
+                        help='Encoder_ent_coeff (default: 1e-3)')
 
     # Miscellaneous
     misc = parser.add_argument_group('Miscellaneous')
@@ -52,9 +64,9 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    wandb.init(project='Task_Structure', entity='td_ml', config=args, settings=wandb.Settings(start_method='thread'),
-               name=args.exp_name, reinit=False)
     logging.info(args)
+    wandb.init(project='Task_Structure', entity='td_ml', config=args, settings=wandb.Settings(start_method='thread'),
+               name=args.exp_name, reinit=True)
     if args.train:
         Trainer(args)
     else:

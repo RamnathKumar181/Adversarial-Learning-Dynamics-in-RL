@@ -152,7 +152,7 @@ def train(ctxt):
                      optimizer_args=dict(
                          batch_size=32,
                          max_optimization_epochs=10,
-                         learning_rate=1e-4,
+                         learning_rate=1e-3,
                      ),
                      inference_optimizer_args=dict(
                          batch_size=32,
@@ -163,7 +163,8 @@ def train(ctxt):
                      stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=config.epochs, batch_size=batch_size, plot=False)
+        trainer.train(n_epochs=config.epochs,
+                      batch_size=batch_size, plot=False)
 
 
 def train_te_ppo_pointenv(args):
@@ -171,4 +172,3 @@ def train_te_ppo_pointenv(args):
     config = args
     train({'log_dir': args.snapshot_dir,
            'use_existing_dir': True})
-    print(args)

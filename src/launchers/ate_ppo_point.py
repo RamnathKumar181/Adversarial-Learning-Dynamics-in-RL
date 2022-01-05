@@ -68,7 +68,7 @@ def train(ctxt):
     inference_window = 6
     batch_size = 1024 * len(TASKS)
     policy_ent_coeff = 1e-3
-    encoder_ent_coeff = 1e3
+    encoder_ent_coeff = 1e-3
     inference_ce_coeff = 5e-2
     embedding_init_std = 0.1
     embedding_max_std = 0.2
@@ -153,23 +153,20 @@ def train(ctxt):
                       encoder_optimizer_args=dict(
                           batch_size=64,
                           max_optimization_epochs=10,
-                          learning_rate=config.encoder_optimizer_lr,
+                          learning_rate=5e-4,
                       ),
                       policy_optimizer_args=dict(
                           batch_size=64,
                           max_optimization_epochs=10,
-                          learning_rate=config.policy_optimizer_lr,
+                          learning_rate=5e-4,
                       ),
                       inference_optimizer_args=dict(
                           batch_size=64,
                           max_optimization_epochs=10,
-                          learning_rate=config.inference_optimizer_lr,
+                          learning_rate=5e-4,
                       ),
                       center_adv=True,
-                      stop_ce_gradient=True,
-                      num_embedding_itr=1,
-                      num_policy_itr=10,
-                      num_inference_itr=5,)
+                      stop_ce_gradient=True)
 
         trainer.setup(algo, env)
         trainer.train(n_epochs=config.epochs, batch_size=batch_size, plot=True)

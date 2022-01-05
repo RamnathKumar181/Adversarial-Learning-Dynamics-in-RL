@@ -136,4 +136,16 @@ class MT5(Benchmark):
         self._test_tasks = []
 
 
-__all__ = ["ML5", "MT5"]
+class MT5_v2(Benchmark):
+    def __init__(self, seed=None):
+        super().__init__()
+        self._train_classes = _env_dict.MT5_V1
+        self._test_classes = OrderedDict()
+        train_kwargs = _env_dict.MT5_V1_ARGS_KWARGS
+        self._train_tasks = _make_tasks(self._train_classes, train_kwargs,
+                                        _MT_OVERRIDE,
+                                        seed=seed)
+        self._test_tasks = []
+
+
+__all__ = ["ML5", "MT5", "MT5_v2"]

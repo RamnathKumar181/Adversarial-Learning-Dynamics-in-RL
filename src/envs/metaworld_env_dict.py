@@ -109,18 +109,18 @@ ALL_V2_ENVIRONMENTS = OrderedDict((
 ))
 
 
-MT5_V1 = OrderedDict(
-    (('push-v2', SawyerPushEnvV2),
-     ('push-wall-v2', SawyerPushWallEnvV2),
-     ('stick-push-v2', SawyerStickPushEnvV2),
-     ('coffee-push-v2', SawyerCoffeePushEnvV2),
-     ('push-back-v2', SawyerPushBackEnvV2),), )
-
-MT5_V1_ARGS_KWARGS = {
-    key: dict(args=[],
-              kwargs={'task_id': list(ALL_V2_ENVIRONMENTS.keys()).index(key)})
-    for key, _ in MT5_V1.items()
-}
+# MT5_V1 = OrderedDict(
+#     (('push-v2', SawyerPushEnvV2),
+#      ('push-wall-v2', SawyerPushWallEnvV2),
+#      ('stick-push-v2', SawyerStickPushEnvV2),
+#      ('coffee-push-v2', SawyerCoffeePushEnvV2),
+#      ('push-back-v2', SawyerPushBackEnvV2),), )
+#
+# MT5_V1_ARGS_KWARGS = {
+#     key: dict(args=[],
+#               kwargs={'task_id': list(ALL_V2_ENVIRONMENTS.keys()).index(key)})
+#     for key, _ in MT5_V1.items()
+# }
 
 MT5_V2 = OrderedDict(
     (('push-v2', SawyerPushEnvV2),
@@ -138,4 +138,18 @@ MT5_V2_ARGS_KWARGS = {
     key: dict(args=[],
               kwargs={'task_id': list(ALL_V2_ENVIRONMENTS.keys()).index(key)})
     for key, _ in MT5_V2.items()
+}
+
+
+MT5_V1 = OrderedDict(
+    (('push-v2', SawyerPushEnvV2),
+     ('window-open-v2', SawyerWindowOpenEnvV2),
+     ('window-close-v2', SawyerWindowCloseEnvV2),
+     ('drawer-close-v2', SawyerDrawerCloseEnvV2),
+     ('drawer-open-v2', SawyerDrawerOpenEnvV2),), )
+
+MT5_V1_ARGS_KWARGS = {
+    key: dict(args=[],
+              kwargs={'task_id': list(ALL_V2_ENVIRONMENTS.keys()).index(key)})
+    for key, _ in MT5_V1.items()
 }

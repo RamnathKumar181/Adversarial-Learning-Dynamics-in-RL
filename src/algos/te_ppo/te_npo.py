@@ -249,8 +249,12 @@ class TENPO(RLAlgorithm):
         logger.log('Optimizing policy...')
         self._optimize_policy(itr, episodes, baselines, embed_eps,
                               embed_ep_infos)
-        wandb.log({'Average_Return': average_return,
-                   'Success_Rate': tabular.as_primitive_dict['Evaluation/SuccessRate']})
+        try:
+            wandb.log({'Average_Return': tabular.as_primitive_dict['Evaluation/AverageReturn'],
+                       'Success_Rate': tabular.as_primitive_dict['Evaluation/SuccessRate']})
+        except Exception:
+            wandb.log(
+                {'Average_Return': tabular.as_primitive_dict['Evaluation/AverageReturn']})
         return average_return
 
     def _optimize_policy(self, itr, episodes, baselines, embed_eps,
@@ -494,9 +498,9 @@ class TENPO(RLAlgorithm):
 
         # Augment the path rewards with entropy terms
         with tf.name_scope('augmented_rewards'):
-            rewards = (i.reward_var -
-                       (self.inference_ce_coeff * inference_ce) +
-                       (self._policy_ent_coeff * policy_entropy))
+            rewards = (i.reward_var
+                       - (self.inference_ce_coeff * inference_ce)
+                       + (self._policy_ent_coeff * policy_entropy))
 
         with tf.name_scope('policy_loss'):
             with tf.name_scope('advantages'):
@@ -846,8 +850,8 @@ class TENPO(RLAlgorithm):
         tabular.record('{}/EntRewards'.format(self.policy.name), d_rewards)
         aug_average_discounted_return = (np.mean(
             [ret[0] for ret in returns_tensor]))
-        d_returns = np.mean(aug_average_discounted_return -
-                            env_average_discounted_return)
+        d_returns = np.mean(aug_average_discounted_return
+                            - env_average_discounted_return)
         tabular.record('{}/EntReturns'.format(self.policy.name), d_returns)
         # Calculate explained variance
         ev = explained_variance_1d(np.concatenate(baselines_list), aug_returns)
@@ -873,6 +877,10 @@ class TENPO(RLAlgorithm):
         path_lengths = np.sum(valids, axis=1)
         for t in range(self.policy.task_space.flat_dim):
             lengths = path_lengths[task_indices == t]
+            if np.isnan(np.mean(lengths)):
+                print(f"Nan value for length: {lengths}")
+                if np.isnan(lengths):
+                    print("Length itself is nan...")
             completed = lengths < self.max_episode_length
             pct_completed = np.mean(completed)
             tabular.record('Tasks/EpisodeLength/t={}'.format(t),

@@ -34,19 +34,20 @@ def train(ctxt):
     """
     set_seed(config.seed)
 
-    mt = mt5.MT5()
+    mt = mt5.MT5_v2()
     train_task_sampler = MetaWorldTaskSampler(mt,
                                               'train',
+                                              lambda env, _: normalize(env),
                                               add_env_onehot=False)
-
-    envs = [env_up() for env_up in train_task_sampler.sample(10)]
+    num_tasks = 5
+    envs = [env_up() for env_up in train_task_sampler.sample(num_tasks)]
     env = MultiEnvWrapper(envs,
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
 
     latent_length = 4
     inference_window = 6
-    batch_size = 2048 * len(envs)
+    batch_size = 5000 * len(envs)
     policy_ent_coeff = 2e-2
     encoder_ent_coeff = 2e-2
     inference_ce_coeff = 5e-2
@@ -121,9 +122,9 @@ def train(ctxt):
                       inference_ce_coeff=inference_ce_coeff,
                       use_softplus_entropy=True,
                       encoder_optimizer_args=dict(
-                          batch_size=128,
+                          batch_size=256,
                           max_optimization_epochs=10,
-                          learning_rate=5e-4,
+                          learning_rate=1e-4,
                       ),
                       policy_optimizer_args=dict(
                           batch_size=256,
@@ -131,18 +132,15 @@ def train(ctxt):
                           learning_rate=5e-4,
                       ),
                       inference_optimizer_args=dict(
-                          batch_size=128,
+                          batch_size=256,
                           max_optimization_epochs=10,
                           learning_rate=5e-4,
                       ),
                       center_adv=True,
-                      stop_ce_gradient=True,
-                      num_embedding_itr=1,
-                      num_policy_itr=10,
-                      num_inference_itr=5)
+                      stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=1000, batch_size=batch_size, plot=False)
+        trainer.train(n_epochs=10, batch_size=batch_size, plot=False)
 
 
 def train_ate_ppo_mt5(args):

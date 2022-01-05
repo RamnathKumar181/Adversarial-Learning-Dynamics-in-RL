@@ -11,6 +11,7 @@ from garage.experiment.deterministic import set_seed
 from garage.np.baselines import LinearMultiFeatureBaseline
 from garage.sampler import LocalSampler
 from src.algos.te_ppo import TEPPO
+from garage.envs import normalize
 from garage.tf.algos.te import TaskEmbeddingWorker
 from garage.tf.embeddings import GaussianMLPEncoder
 from garage.tf.policies import GaussianMLPTaskEmbeddingPolicy
@@ -32,12 +33,13 @@ def train(ctxt):
     """
     set_seed(config.seed)
 
-    mt = mt5.MT5()
+    mt = mt5.MT5_v2()
     train_task_sampler = MetaWorldTaskSampler(mt,
                                               'train',
+                                              lambda env, _: normalize(env),
                                               add_env_onehot=False)
-
-    envs = [env_up() for env_up in train_task_sampler.sample(10)]
+    num_tasks = 5
+    envs = [env_up() for env_up in train_task_sampler.sample(num_tasks)]
     env = MultiEnvWrapper(envs,
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')

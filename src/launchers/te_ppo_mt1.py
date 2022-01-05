@@ -19,6 +19,15 @@ from garage.trainer import TFTrainer
 import wandb
 
 
+def get_env(choice):
+    env_enum = {0: 'push-v2',
+                1: 'window-open-v2',
+                2: 'window-close-v2',
+                3: 'drawer-close-v2',
+                4: 'drawer-open-v2', }
+    return env_enum[choice]
+
+
 @wrap_experiment
 def train(ctxt):
     """Train Task Embedding PPO with PointEnv.
@@ -34,12 +43,15 @@ def train(ctxt):
     """
     set_seed(config.seed)
 
-    mt1 = metaworld.MT1('push-v2')
-    train_task_sampler = MetaWorldTaskSampler(mt1,
-                                              'train',
-                                              add_env_onehot=False)
+    env_name = get_env(config.mt1_env_num)
 
-    envs = [env_up() for env_up in train_task_sampler.sample(10)]
+    mt1 = metaworld.MT1(env_name)
+    task_sampler = MetaWorldTaskSampler(mt1,
+                                        'train',
+                                        lambda env, _: normalize(env),
+                                        add_env_onehot=False)
+    num_tasks = 50
+    envs = [env_up() for env_up in task_sampler.sample(num_tasks)]
     env = MultiEnvWrapper(envs,
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
@@ -134,7 +146,7 @@ def train(ctxt):
                      stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=2000, batch_size=batch_size, plot=True)
+        trainer.train(n_epochs=500, batch_size=batch_size, plot=True)
 
 
 def train_te_ppo_mt1(args):

@@ -2,11 +2,12 @@
 """This is an example to train Task Embedding PPO with PointEnv."""
 # pylint: disable=no-value-for-parameter
 import tensorflow as tf
-from garage import wrap_experiment
-import metaworld
-from garage.experiment import MetaWorldTaskSampler
+from garage.experiment import SetTaskSampler
 from garage.envs import normalize
-
+from src.envs.bandit import BernoulliBanditEnv
+from garage.envs import GymEnv
+import gym
+from garage import wrap_experiment
 from garage.envs.multi_env_wrapper import MultiEnvWrapper, round_robin_strategy
 from garage.experiment.deterministic import set_seed
 from garage.np.baselines import LinearMultiFeatureBaseline
@@ -33,20 +34,19 @@ def train(ctxt):
 
     """
     set_seed(config.seed)
+    train_task_sampler = SetTaskSampler(
+        BernoulliBanditEnv,
+        wrapper=lambda env, _: normalize(
+            GymEnv(env, max_episode_length=100)))
 
-    mt10 = metaworld.MT10()
-    train_task_sampler = MetaWorldTaskSampler(mt10,
-                                              'train',
-                                              lambda env, _: normalize(env),
-                                              add_env_onehot=False)
-
-    envs = [env_up() for env_up in train_task_sampler.sample(10)]
+    envs = [env_up() for env_up in train_task_sampler.sample(50)]
     env = MultiEnvWrapper(envs,
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
+
     latent_length = 4
     inference_window = 6
-    batch_size = 5000 * len(envs)
+    batch_size = 1024 * len(envs)
     policy_ent_coeff = 2e-2
     encoder_ent_coeff = 2e-2
     inference_ce_coeff = 5e-2
@@ -123,26 +123,26 @@ def train(ctxt):
                       encoder_optimizer_args=dict(
                           batch_size=128,
                           max_optimization_epochs=10,
-                          learning_rate=5e-4,
+                          learning_rate=1e-4,
                       ),
                       policy_optimizer_args=dict(
                           batch_size=256,
                           max_optimization_epochs=10,
-                          learning_rate=5e-4,
+                          learning_rate=1e-4,
                       ),
                       inference_optimizer_args=dict(
-                          batch_size=128,
+                          batch_size=256,
                           max_optimization_epochs=10,
-                          learning_rate=5e-4,
+                          learning_rate=1e-4,
                       ),
                       center_adv=True,
                       stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=10, batch_size=batch_size, plot=False)
+        trainer.train(n_epochs=100, batch_size=batch_size, plot=False)
 
 
-def train_ate_ppo_mt10(args):
+def train_ate_ppo_bandit(args):
     global config
     config = args
     train({'log_dir': args.snapshot_dir,
