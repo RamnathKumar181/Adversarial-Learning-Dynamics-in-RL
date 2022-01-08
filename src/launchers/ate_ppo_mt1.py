@@ -21,12 +21,17 @@ import random
 
 
 def get_env(choice):
-    env_enum = {0: 'push-v2',
+    env_enum = {0: 'pick-place-wall-v2',
                 1: 'window-open-v2',
                 2: 'window-close-v2',
                 3: 'drawer-close-v2',
                 4: 'drawer-open-v2', }
-    return env_enum[choice]
+    epoch_enum = {0: 500,
+                  1: 100,
+                  2: 100,
+                  3: 100,
+                  4: 500, }
+    return env_enum[choice], epoch_enum[choice]
 
 
 @wrap_experiment
@@ -43,7 +48,7 @@ def train(ctxt):
 
     """
     set_seed(config.seed)
-    env_name = get_env(config.mt1_env_num)
+    env_name, epoch = get_env(config.mt1_env_num)
 
     mt1 = metaworld.MT1(env_name)
     task_sampler = MetaWorldTaskSampler(mt1,
@@ -59,15 +64,24 @@ def train(ctxt):
     latent_length = 4
     inference_window = 6
     batch_size = 5000 * len(envs)
-    policy_ent_coeff = 2e-2
-    encoder_ent_coeff = 2e-2
-    inference_ce_coeff = 5e-2
-    embedding_init_std = 0.1
-    embedding_max_std = 0.2
-    embedding_min_std = 1e-6
-    policy_init_std = 1.0
-    policy_max_std = 1.5
-    policy_min_std = 0.5
+    # policy_ent_coeff = 2e-2
+    # encoder_ent_coeff = 2e-2
+    # inference_ce_coeff = 5e-2
+    # embedding_init_std = 0.1
+    # embedding_max_std = 0.2
+    # embedding_min_std = 1e-6
+    # policy_init_std = 1.0
+    # policy_max_std = 1.5
+    # policy_min_std = 0.5
+    policy_ent_coeff = 0.594
+    encoder_ent_coeff = 1373.0
+    inference_ce_coeff = 0.09017
+    embedding_init_std = 0.6552
+    embedding_max_std = 0.05724
+    embedding_min_std = 3.556e-05
+    policy_init_std = 0.8588
+    policy_max_std = 0.01529
+    policy_min_std = 0.0002759
 
     with TFTrainer(snapshot_config=ctxt) as trainer:
         task_embed_spec = ATEPPO.get_encoder_spec(env.task_space,
@@ -151,7 +165,7 @@ def train(ctxt):
                       stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=1000, batch_size=batch_size, plot=False)
+        trainer.train(n_epochs=epoch, batch_size=batch_size, plot=False)
 
 
 def train_ate_ppo_mt1(args):

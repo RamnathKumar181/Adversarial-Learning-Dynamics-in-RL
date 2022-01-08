@@ -94,7 +94,7 @@ def train(ctxt):
             name='policy',
             env_spec=env.spec,
             encoder=task_encoder,
-            hidden_sizes=(32, 16),
+            hidden_sizes=(256, 256),
             std_share_network=True,
             max_std=policy_max_std,
             init_std=policy_init_std,

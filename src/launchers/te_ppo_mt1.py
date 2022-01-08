@@ -20,7 +20,7 @@ import wandb
 
 
 def get_env(choice):
-    env_enum = {0: 'push-v2',
+    env_enum = {0: 'pick-place-wall-v2',
                 1: 'window-open-v2',
                 2: 'window-close-v2',
                 3: 'drawer-close-v2',

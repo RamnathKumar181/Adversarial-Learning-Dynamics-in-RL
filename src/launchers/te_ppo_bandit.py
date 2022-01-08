@@ -34,19 +34,17 @@ def train(ctxt):
 
     """
     set_seed(config.seed)
-    train_task_sampler = SetTaskSampler(
-        BernoulliBanditEnv,
-        wrapper=lambda env, _: normalize(
-            GymEnv(env, max_episode_length=100)))
-
-    envs = [env_up() for env_up in train_task_sampler.sample(50)]
-    env = MultiEnvWrapper(envs,
-                          sample_strategy=round_robin_strategy,
-                          mode='vanilla')
+    # train_task_sampler = SetTaskSampler(
+    #     BernoulliBanditEnv,
+    #     wrapper=lambda env, _: normalize(
+    #         GymEnv(env, max_episode_length=100)))
+    #
+    # envs = [env_up() for env_up in train_task_sampler.sample(10)]
+    env = GymEnv('BernoulliBanditEnv', max_episode_length=100)
 
     latent_length = 4
     inference_window = 6
-    batch_size = 1024 * len(envs)
+    batch_size = 1024
     policy_ent_coeff = 2e-2
     encoder_ent_coeff = 2e-2
     inference_ce_coeff = 5e-2

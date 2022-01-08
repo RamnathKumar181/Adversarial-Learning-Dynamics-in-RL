@@ -153,23 +153,23 @@ def train(ctxt):
                       encoder_optimizer_args=dict(
                           batch_size=64,
                           max_optimization_epochs=10,
-                          learning_rate=5e-4,
+                          learning_rate=1e-4,
                       ),
                       policy_optimizer_args=dict(
                           batch_size=64,
                           max_optimization_epochs=10,
-                          learning_rate=5e-4,
+                          learning_rate=1e-3,
                       ),
                       inference_optimizer_args=dict(
                           batch_size=64,
                           max_optimization_epochs=10,
-                          learning_rate=5e-4,
+                          learning_rate=1e-3,
                       ),
                       center_adv=True,
                       stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=config.epochs, batch_size=batch_size, plot=True)
+        trainer.train(n_epochs=400, batch_size=batch_size, plot=True)
 
 
 def train_ate_ppo_pointenv(args):

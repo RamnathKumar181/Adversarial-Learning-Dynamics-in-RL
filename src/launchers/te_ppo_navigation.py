@@ -39,14 +39,14 @@ def train(ctxt):
         wrapper=lambda env, _: normalize(
             GymEnv(env, max_episode_length=100)))
 
-    envs = [env_up() for env_up in train_task_sampler.sample(50)]
+    envs = [env_up() for env_up in train_task_sampler.sample(1)]
     env = MultiEnvWrapper(envs,
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
 
     latent_length = 4
     inference_window = 6
-    batch_size = 1024 * len(envs)
+    batch_size = 1024 * 1
     policy_ent_coeff = 2e-2
     encoder_ent_coeff = 2e-2
     inference_ce_coeff = 5e-2
@@ -126,7 +126,7 @@ def train(ctxt):
                          learning_rate=1e-3,
                      ),
                      inference_optimizer_args=dict(
-                         batch_size=64,
+                         batch_size=32,
                          max_optimization_epochs=10,
                          learning_rate=1e-3,
                      ),

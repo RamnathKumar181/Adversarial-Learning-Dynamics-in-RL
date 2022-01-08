@@ -21,6 +21,57 @@ from garage.tf.optimizers import LBFGSOptimizer
 from garage.tf.policies import TaskEmbeddingPolicy
 
 # yapf: enable
+from garage import StepType
+
+
+def log_performance_local(itr, batch, discount, prefix='Evaluation'):
+    """Evaluate the performance of an algorithm on a batch of episodes.
+    Args:
+        itr (int): Iteration number.
+        batch (EpisodeBatch): The episodes to evaluate with.
+        discount (float): Discount value, from algorithm's property.
+        prefix (str): Prefix to add to all logged keys.
+    Returns:
+        numpy.ndarray: Undiscounted returns.
+    """
+    returns = []
+    undiscounted_returns = []
+    termination = []
+    success = []
+    success_per_task = {}
+    for eps in batch.split():
+        if eps.env_infos['task_name'][0] not in success_per_task.keys():
+            success_per_task[eps.env_infos['task_name'][0]] = []
+        returns.append(discount_cumsum(eps.rewards, discount))
+        undiscounted_returns.append(sum(eps.rewards))
+        termination.append(
+            float(
+                any(step_type == StepType.TERMINAL
+                    for step_type in eps.step_types)))
+        if 'success' in eps.env_infos:
+            success.append(float(eps.env_infos['success'].any()))
+            success_per_task[eps.env_infos['task_name'][0]].append(
+                float(eps.env_infos['success'].any()))
+    average_discounted_return = np.mean([rtn[0] for rtn in returns])
+
+    with tabular.prefix(prefix + '/'):
+        tabular.record('Iteration', itr)
+        tabular.record('NumEpisodes', len(returns))
+
+        tabular.record('AverageDiscountedReturn', average_discounted_return)
+        tabular.record('AverageReturn', np.mean(undiscounted_returns))
+        tabular.record('StdReturn', np.std(undiscounted_returns))
+        tabular.record('MaxReturn', np.max(undiscounted_returns))
+        tabular.record('MinReturn', np.min(undiscounted_returns))
+        tabular.record('TerminationRate', np.mean(termination))
+        if success:
+            tabular.record('SuccessRate', np.mean(success))
+            if len(success_per_task.keys()) > 1:
+                for k in success_per_task.keys():
+                    tabular.record('{}/SuccessRate'.format(
+                        k), np.mean(success_per_task[k]))
+                return undiscounted_returns, success_per_task
+    return undiscounted_returns
 
 
 class TENPO(RLAlgorithm):
@@ -223,10 +274,14 @@ class TENPO(RLAlgorithm):
             numpy.float64: Average return.
 
         """
-        undiscounted_returns = log_performance(itr,
-                                               episodes,
-                                               discount=self._discount)
-
+        if self.policy.task_space.flat_dim == 1:
+            undiscounted_returns = log_performance(itr,
+                                                   episodes,
+                                                   discount=self._discount)
+        else:
+            undiscounted_returns, success_per_task = log_performance_local(itr,
+                                                                           episodes,
+                                                                           discount=self._discount)
         # Calculate baseline predictions
         baselines = []
         start = 0
@@ -250,8 +305,17 @@ class TENPO(RLAlgorithm):
         self._optimize_policy(itr, episodes, baselines, embed_eps,
                               embed_ep_infos)
         try:
-            wandb.log({'Average_Return': tabular.as_primitive_dict['Evaluation/AverageReturn'],
-                       'Success_Rate': tabular.as_primitive_dict['Evaluation/SuccessRate']})
+            if self.policy.task_space.flat_dim != 1:
+                task_success_dict = {}
+                for k in success_per_task.keys():
+                    task_success_dict['{}/SuccessRate'.format(
+                        k)] = tabular.as_primitive_dict['Evaluation/{}/SuccessRate'.format(k)]
+                task_success_dict['Average_Return'] = tabular.as_primitive_dict['Evaluation/AverageReturn']
+                task_success_dict['Success_Rate'] = tabular.as_primitive_dict['Evaluation/SuccessRate']
+                wandb.log(task_success_dict)
+            else:
+                wandb.log({'Average_Return': tabular.as_primitive_dict['Evaluation/AverageReturn'],
+                           'Success_Rate': tabular.as_primitive_dict['Evaluation/SuccessRate']})
         except Exception:
             wandb.log(
                 {'Average_Return': tabular.as_primitive_dict['Evaluation/AverageReturn']})

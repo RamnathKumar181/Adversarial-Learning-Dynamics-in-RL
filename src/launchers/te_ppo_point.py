@@ -152,7 +152,7 @@ def train(ctxt):
                      optimizer_args=dict(
                          batch_size=32,
                          max_optimization_epochs=10,
-                         learning_rate=1e-3,
+                         learning_rate=1e-4,
                      ),
                      inference_optimizer_args=dict(
                          batch_size=32,
@@ -163,7 +163,7 @@ def train(ctxt):
                      stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=config.epochs,
+        trainer.train(n_epochs=400,
                       batch_size=batch_size, plot=False)
 
 

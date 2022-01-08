@@ -39,7 +39,7 @@ def train(ctxt):
         wrapper=lambda env, _: normalize(
             GymEnv(env, max_episode_length=100)))
 
-    envs = [env_up() for env_up in train_task_sampler.sample(50)]
+    envs = [env_up() for env_up in train_task_sampler.sample(1)]
     env = MultiEnvWrapper(envs,
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
@@ -47,15 +47,15 @@ def train(ctxt):
     latent_length = 4
     inference_window = 6
     batch_size = 1024 * len(envs)
-    policy_ent_coeff = 2e-2
-    encoder_ent_coeff = 2e-2
+    policy_ent_coeff = 1e-3
+    encoder_ent_coeff = 1e-3
     inference_ce_coeff = 5e-2
     embedding_init_std = 0.1
     embedding_max_std = 0.2
     embedding_min_std = 1e-6
     policy_init_std = 1.0
-    policy_max_std = 1.5
-    policy_min_std = 0.5
+    policy_max_std = 2.0
+    policy_min_std = None
 
     with TFTrainer(snapshot_config=ctxt) as trainer:
         task_embed_spec = ATEPPO.get_encoder_spec(env.task_space,
@@ -121,19 +121,19 @@ def train(ctxt):
                       inference_ce_coeff=inference_ce_coeff,
                       use_softplus_entropy=True,
                       encoder_optimizer_args=dict(
-                          batch_size=128,
+                          batch_size=64,
                           max_optimization_epochs=10,
                           learning_rate=1e-4,
                       ),
                       policy_optimizer_args=dict(
-                          batch_size=256,
+                          batch_size=64,
                           max_optimization_epochs=10,
-                          learning_rate=1e-4,
+                          learning_rate=1e-3,
                       ),
                       inference_optimizer_args=dict(
-                          batch_size=256,
+                          batch_size=64,
                           max_optimization_epochs=10,
-                          learning_rate=1e-4,
+                          learning_rate=1e-3,
                       ),
                       center_adv=True,
                       stop_ce_gradient=True)
