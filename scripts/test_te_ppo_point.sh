@@ -3,10 +3,9 @@
 #SBATCH --job-name=test_te_ppo_point
 #SBATCH --output=../logs/test_te_ppo_point.out
 #SBATCH --error=../logs/test_te_ppo_point.err
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:titanrtx:1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=20G
-#SBATCH --time=0-01:00:00
+#SBATCH --mem=10G
 
 source ../venv/bin/activate
 module load python/3.7

@@ -3,6 +3,7 @@ import gym
 
 from gym import spaces
 from gym.utils import seeding
+import math
 
 
 class BernoulliBanditEnv(gym.Env):
@@ -23,7 +24,8 @@ class BernoulliBanditEnv(gym.Env):
         super(BernoulliBanditEnv, self).__init__()
         self.k = k
 
-        self.action_space = spaces.Discrete(self.k)
+        self.action_space = spaces.Box(low=0, high=self.k-1,
+                                       shape=(1,), dtype=np.int64)
         self.observation_space = spaces.Box(low=0, high=0,
                                             shape=(1,), dtype=np.float32)
 
@@ -51,12 +53,28 @@ class BernoulliBanditEnv(gym.Env):
         return np.zeros(1, dtype=np.float32)
 
     def step(self, action):
-        assert self.action_space.contains(action)
+        # assert self.action_space.contains(action)
+        print(action, math.floor(action))
+        action = math.floor(action)
         mean = self._means[action]
         reward = self.np_random.binomial(1, mean)
         observation = np.zeros(1, dtype=np.float32)
 
         return observation, reward, True, {'task': self._task}
+
+
+class BernoulliBanditEnv_5(BernoulliBanditEnv):
+    def __init__(self):
+        super().__init__(
+            k=5
+        )
+
+
+class BernoulliBanditEnv_100(BernoulliBanditEnv):
+    def __init__(self):
+        super().__init__(
+            k=100
+        )
 
 
 class GaussianBanditEnv(gym.Env):
@@ -74,7 +92,8 @@ class GaussianBanditEnv(gym.Env):
         self.k = k
         self.std = std
 
-        self.action_space = spaces.Discrete(self.k)
+        self.action_space = spaces.Box(low=0, high=self.k,
+                                       shape=(1,), dtype=np.int64)
         self.observation_space = spaces.Box(low=0, high=0,
                                             shape=(1,), dtype=np.float32)
 
@@ -102,7 +121,10 @@ class GaussianBanditEnv(gym.Env):
         return np.zeros(1, dtype=np.float32)
 
     def step(self, action):
-        assert self.action_space.contains(action)
+        # assert self.action_space.contains(action)
+        if action == self.k:
+            action -= 1
+        print(action, math.floor(action))
         mean = self._means[action]
         reward = self.np_random.normal(mean, self.std)
         observation = np.zeros(1, dtype=np.float32)

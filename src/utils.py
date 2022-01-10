@@ -3,7 +3,8 @@ from src.launchers import train_te_ppo_mt5, train_ate_ppo_mt5
 from src.launchers import train_te_ppo_mt10, train_ate_ppo_mt10
 from src.launchers import train_te_ppo_mt1, train_ate_ppo_mt1
 from src.launchers import train_ate_ppo_navigation, train_te_ppo_navigation
-from src.launchers import train_ate_ppo_bandit, train_te_ppo_bandit
+from src.launchers import train_te_ppo_bandit, train_ate_ppo_bandit
+from src.launchers import train_te_ppo_multiroom_n2s4
 import numpy as np
 import os
 import torch
@@ -59,6 +60,8 @@ def get_benchmark_by_name(algo_name, env_name):
             algo = train_te_ppo_navigation
         if env_name == "bandit":
             algo = train_te_ppo_bandit
+        if env_name == "multiroom_n2s4":
+            algo = train_te_ppo_multiroom_n2s4
 
     elif algo_name == "ate_ppo":
         if env_name == "point_mass":

@@ -17,7 +17,8 @@ def parse_args():
                         help='Algorithm to be used (default: te_ppo).')
     parser.add_argument('--env', type=str,
                         choices=['point_mass', 'mt5',
-                                 'mt1', 'mt10', 'navigation', 'bandit'],
+                                 'mt1', 'mt10', 'navigation', 'bandit',
+                                 'multiroom_n2s4'],
                         default='point_mass',
                         help='Environment to be used (default: point_mass).')
     parser.add_argument('--train', action='store_true',
@@ -65,7 +66,8 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     logging.info(args)
-    wandb.init(project='Task_Structure', entity='td_ml', config=args, settings=wandb.Settings(start_method='thread'),
+    wandb.init(project='Task_Structure', entity='td_ml', config=args,
+               settings=wandb.Settings(start_method='thread'),
                name=args.exp_name, reinit=True)
     if args.train:
         Trainer(args)

@@ -9,15 +9,42 @@ import numpy as np
 import joblib
 from garage import rollout
 from src.causality import plot_ace
+import matplotlib as mpl
+from garage.experiment.deterministic import set_seed
+
+
+def rollout_given_z(env,
+                    agent,
+                    z,
+                    max_path_length=np.inf,
+                    animated=False,
+                    speedup=1):
+    o, episode_infos = env.reset()
+    agent.reset()
+
+    if animated:
+        env.visualize()
+    print(max_path_length)
+    path_length = 0
+    observations = []
+    while path_length < max_path_length:
+        a, agent_info = agent.get_action_given_latent(
+            o, z)
+        es = env.step(a)
+        observations.append(o)
+        path_length += 1
+        if es.last:
+            break
+        o = es.observation
+    return np.array(observations)
 
 
 def get_z_dist(t, policy):
     """ Get the latent distribution for a task """
     onehot = np.zeros(policy.task_space.shape, dtype=np.float32)
-    onehot[t] = 1
-    _z, latent_info = policy.get_latent(onehot)
-    _z = policy.latent_space.flatten(_z)
-    return _z, latent_info["mean"], np.exp(latent_info["log_std"])
+    onehot[t-1] = 1
+    _, latent_info = policy.get_latent(onehot)
+    return latent_info["mean"], np.exp(latent_info["log_std"])
 
 
 class Trainer():
@@ -48,9 +75,8 @@ class Tester():
         tf.compat.v1.disable_eager_execution()
         tf.compat.v1.InteractiveSession()
         self._build()
+        self._visualize_each_task()
         self.get_causal_attributions()
-        # self._visualize_each_task()
-        # self._plot_latents()
 
     def _build(self):
         snapshot = joblib.load(self.args.folder)
@@ -62,79 +88,49 @@ class Tester():
         # Embedding distributions
         self.z_dists = [get_z_dist(t, self.policy)
                         for t in range(self.num_tasks)]
-        self._z = np.array([d[0] for d in self.z_dists])
-        self.z_means = np.array([d[1] for d in self.z_dists])
-        self.z_stds = np.array([d[2] for d in self.z_dists])
+        self.z_means = np.array([d[0] for d in self.z_dists])
+        self.z_stds = np.array([d[1] for d in self.z_dists])
         self.num_latents = self.z_means[0].shape[0]
 
-    def _plot_latents(self):
-        fig = plt.figure(figsize=(13, 6))
-        lr_grid = gridspec.GridSpec(1, 1)
-        em_grid = gridspec.GridSpecFromSubplotSpec(
-            self.num_latents, 1, subplot_spec=lr_grid[0])
-
-        def colormap(x): return matplotlib.cm.get_cmap("Set1")(x)
-        self.task_cmap = [colormap(task / (self.num_tasks-1.) * 0.5)
-                          for task in range(self.num_tasks)]
-
-        for d in range(self.num_latents):
-            em_ax = plt.Subplot(fig, em_grid[d])
-            em_ax.set_title("Embedding dimension %i" % d)
-            em_ax.grid()
-            for task in range(self.num_tasks):
-                mu = self.z_means[task, d]
-                sigma = self.z_stds[task, d]
-
-                xs = np.linspace(self.latent_mins[d], self.latent_maxs[d], 100)
-                ys = ((1 / (np.sqrt(2 * np.pi) * sigma))
-                      * np.exp(-0.5 * (1 / sigma * (xs - mu)) ** 2))
-
-                em_ax.plot(
-                    xs, ys, color=self.task_cmap[task], label=f'Task: {task}')
-                em_ax.fill_between(xs, np.zeros_like(
-                    xs), ys, color=self.task_cmap[task], alpha=.1)
-            em_ax.legend()
-
-            fig.add_subplot(em_ax)
-        fig.tight_layout()
-        fig.savefig(f"{os.path.dirname(self.args.folder)}/latent_embed.pdf")
+        self.colormap = mpl.cm.Dark2.colors
 
     def _visualize_each_task(self):
         task_envs = self.env._task_envs
+        fig = plt.figure(figsize=(7, 7))
+        plt.xlim([-4, 4])
+        plt.ylim([-4, 4])
         for task in range(self.num_tasks):
-            path = rollout(task_envs[task], self.policy,
-                           max_episode_length=self.env.spec.max_episode_length,
-                           animated=True)
-            print(path)
+            print(f"{task}: {task_envs[task]._goal}")
+            plt.scatter(task_envs[task]._goal[0], task_envs[task]._goal[1],
+                        s=5000, color=self.colormap[task], alpha=0.3)
+            for i in range(5):
+                set_seed(i)
+                path = rollout_given_z(task_envs[task], self.policy,
+                                       self.z_means[task],
+                                       max_path_length=200,
+                                       animated=True)
+                plt.plot(path[:, 0], path[:, 1],
+                         alpha=0.7, color=self.colormap[task])
+        fig.tight_layout()
+        fig.savefig(f"{os.path.dirname(self.args.folder)}/rollout.pdf")
 
     def get_causal_attributions(self):
         for task in range(self.num_tasks):
-            latent_mins, latent_maxs = [], []
-            for d in range(self.num_latents):
-                lmin, lmax = np.inf, -np.inf
-                for task in range(self.num_tasks):
-                    mu = self.z_means[task, d]
-                    sigma = self.z_stds[task, d]
-                    lmin = min(lmin, mu-3*sigma)
-                    lmax = max(lmax, mu+3*sigma)
-                latent_mins.append(lmin)
-                latent_maxs.append(lmax)
-            self.latent_mins = latent_mins
-            self.latent_maxs = latent_maxs
-            X = np.zeros(shape=(1024, self.num_latents))
-            for d in range(self.num_latents):
-                mu = self.z_means[task, d]
-                sigma = self.z_stds[task, d]
-                xs = np.linspace(
-                    self.latent_mins[d], self.latent_maxs[d], 1024)
-                ys = ((1 / (np.sqrt(2 * np.pi) * sigma))
-                      * np.exp(-0.5 * (1 / sigma * (xs - mu)) ** 2))
-                X[:, d] = ys
-            ace = plot_ace(X=X,
-                           mu=self.z_means[task],
-                           num_c=self.num_latents,
-                           policy=self.policy,
-                           env=self.env._task_envs[task],
-                           min=min(self.latent_mins),
-                           max=max(self.latent_maxs))
-            print("Plotted ace")
+            ace, imp = plot_ace(mu=self.z_means[task],
+                                std=self.z_stds[task],
+                                num_c=self.num_latents.num_latents,
+                                policy=self.policy,
+                                env=self.env._task_envs[task])
+            fig = plt.figure(figsize=(10, 10))
+            plt.xlabel('Intervention Value (alpha)', fontsize=26)
+            plt.ylabel('Causal Attributions (ACE)', fontsize=26)
+            for t in range(0, self.num_latents):
+                plt.plot(np.linspace(0, 1, 1000),
+                         ace[t], label=r'$z_{}$'.format(t+1),
+                         color=self.colormap[t])
+            plt.legend(fontsize=22)
+            plt.xticks(fontsize=18)
+            plt.yticks(fontsize=18)
+            fig.tight_layout()
+            fig.savefig(f"{os.path.dirname(self.args.folder)}/ace_{task}.pdf")
+            print(f"Plotted ace for task: {task}")

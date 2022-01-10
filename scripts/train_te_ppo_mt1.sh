@@ -1,11 +1,12 @@
 #!/bin/bash
+#SBATCH --partition=unkillable
 #SBATCH --job-name=te_ppo_mt1
-#SBATCH --output=../logs/te_ppo_mt1.out
-#SBATCH --error=../logs/te_ppo_mt1.err
-#SBATCH --gres=gpu:1
+#SBATCH --output=../logs/te_ppo_mt1_%a.out
+#SBATCH --error=../logs/te_ppo_mt1_%a.err
+#SBATCH --gres=gpu:titanrtx:16gb:1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=40G
-#SBATCH --time=1-00:00:00
+#SBATCH --mem=30G
+#SBATCH --array=0
 
 source ../venv/bin/activate
 module load python/3.7
@@ -13,4 +14,4 @@ module load mujoco/2.0
 module load mujoco-py
 
 cd ..
-python -m src.main --exp_name te_ppo_mt1 --train --env mt1 --epochs 600 --policy_optimizer_lr 1e-3 --inference_optimizer_lr 1e-3
+python -W ignore -m src.main --exp_name te_ppo_mt1_$SLURM_ARRAY_TASK_ID --train --env mt1 --mt1_env_num $SLURM_ARRAY_TASK_ID --snapshot_dir config/mt1/$SLURM_ARRAY_TASK_ID/

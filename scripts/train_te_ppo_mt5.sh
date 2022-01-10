@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --partition=unkillable
+#SBATCH --partition=main
 #SBATCH --job-name=te_ppo_mt5
 #SBATCH --output=../logs/te_ppo_mt5.out
 #SBATCH --error=../logs/te_ppo_mt5.err
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:titanrtx:16gb:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=20G
 

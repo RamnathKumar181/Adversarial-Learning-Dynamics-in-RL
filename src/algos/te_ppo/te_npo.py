@@ -274,14 +274,14 @@ class TENPO(RLAlgorithm):
             numpy.float64: Average return.
 
         """
-        if self.policy.task_space.flat_dim == 1:
-            undiscounted_returns = log_performance(itr,
-                                                   episodes,
-                                                   discount=self._discount)
-        else:
+        if 'task_name' in episodes.split()[0].env_infos.keys():
             undiscounted_returns, success_per_task = log_performance_local(itr,
                                                                            episodes,
                                                                            discount=self._discount)
+        else:
+            undiscounted_returns = log_performance(itr,
+                                                   episodes,
+                                                   discount=self._discount)
         # Calculate baseline predictions
         baselines = []
         start = 0
@@ -305,7 +305,7 @@ class TENPO(RLAlgorithm):
         self._optimize_policy(itr, episodes, baselines, embed_eps,
                               embed_ep_infos)
         try:
-            if self.policy.task_space.flat_dim != 1:
+            if 'task_name' in episodes.split()[0].env_infos.keys():
                 task_success_dict = {}
                 for k in success_per_task.keys():
                     task_success_dict['{}/SuccessRate'.format(
@@ -542,6 +542,7 @@ class TENPO(RLAlgorithm):
 
         """
         # pylint: disable=too-many-statements
+        print(i.augmented_obs_var, i.task_var)
         self._policy_network, self._encoder_network = (self.policy.build(
             i.augmented_obs_var, i.task_var, name='loss_policy'))
         self._old_policy_network, self._old_encoder_network = (
@@ -600,7 +601,7 @@ class TENPO(RLAlgorithm):
                     tf.minimum(ll - old_ll, np.log(1 + self._lr_clip_range)))
 
                 surrogate = lr * adv
-
+                print(surrogate)
                 surrogate = tf.debugging.check_numerics(surrogate,
                                                         message='surrogate')
 

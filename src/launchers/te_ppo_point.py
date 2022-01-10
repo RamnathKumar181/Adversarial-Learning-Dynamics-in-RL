@@ -163,7 +163,7 @@ def train(ctxt):
                      stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=400,
+        trainer.train(n_epochs=600,
                       batch_size=batch_size, plot=False)
 
 

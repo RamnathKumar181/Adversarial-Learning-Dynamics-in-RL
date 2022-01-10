@@ -94,7 +94,7 @@ def train(ctxt):
             name='policy',
             env_spec=env.spec,
             encoder=task_encoder,
-            hidden_sizes=(256, 256),
+            hidden_sizes=(32, 16),
             std_share_network=True,
             max_std=policy_max_std,
             init_std=policy_init_std,
@@ -140,7 +140,7 @@ def train(ctxt):
                       stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=10, batch_size=batch_size, plot=False)
+        trainer.train(n_epochs=1000, batch_size=batch_size, plot=False)
 
 
 def train_ate_ppo_mt5(args):

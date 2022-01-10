@@ -298,14 +298,14 @@ class ATENPO(RLAlgorithm):
             numpy.float64: Average return.
 
         """
-        if self.policy.task_space.flat_dim == 1:
-            undiscounted_returns = log_performance(itr,
-                                                   episodes,
-                                                   discount=self._discount)
-        else:
+        if 'task_name' in episodes.split()[0].env_infos.keys():
             undiscounted_returns, success_per_task = log_performance_local(itr,
                                                                            episodes,
                                                                            discount=self._discount)
+        else:
+            undiscounted_returns = log_performance(itr,
+                                                   episodes,
+                                                   discount=self._discount)
         # Calculate baseline predictions
         baselines = []
         start = 0
@@ -329,7 +329,7 @@ class ATENPO(RLAlgorithm):
         self._optimize_policy(itr, episodes, baselines, embed_eps,
                               embed_ep_infos)
         try:
-            if self.policy.task_space.flat_dim != 1:
+            if 'task_name' in episodes.split()[0].env_infos.keys():
                 task_success_dict = {}
                 for k in success_per_task.keys():
                     task_success_dict['{}/SuccessRate'.format(

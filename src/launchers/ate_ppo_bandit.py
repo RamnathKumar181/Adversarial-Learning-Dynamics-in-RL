@@ -39,7 +39,7 @@ def train(ctxt):
         wrapper=lambda env, _: normalize(
             GymEnv(env, max_episode_length=100)))
 
-    envs = [env_up() for env_up in train_task_sampler.sample(50)]
+    envs = [env_up() for env_up in train_task_sampler.sample(10)]
     env = MultiEnvWrapper(envs,
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
