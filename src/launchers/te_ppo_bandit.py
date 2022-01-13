@@ -37,12 +37,12 @@ def train(ctxt):
         wrapper=lambda env, _: normalize(
             GymEnv(env, max_episode_length=100)))
 
-    envs = [env_up() for env_up in train_task_sampler.sample(10)]
+    envs = [env_up() for env_up in train_task_sampler.sample(100)]
     env = MultiEnvWrapper(envs,
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
 
-    latent_length = 2
+    latent_length = 4
     inference_window = 5
     batch_size = 500 * len(envs)
     policy_ent_coeff = 1e-3
@@ -119,20 +119,20 @@ def train(ctxt):
                      inference_ce_coeff=inference_ce_coeff,
                      use_softplus_entropy=True,
                      optimizer_args=dict(
-                         batch_size=32,
+                         batch_size=10,
                          max_optimization_epochs=10,
-                         learning_rate=2e-2,
+                         learning_rate=1e-2,
                      ),
                      inference_optimizer_args=dict(
-                         batch_size=32,
+                         batch_size=10,
                          max_optimization_epochs=10,
-                         learning_rate=2e-2,
+                         learning_rate=1e-2,
                      ),
                      center_adv=True,
                      stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=1000, batch_size=batch_size, plot=False)
+        trainer.train(n_epochs=100, batch_size=batch_size, plot=False)
 
 
 def train_te_ppo_bandit(args):

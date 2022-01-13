@@ -3,6 +3,8 @@ from src.trainer import Trainer, Tester
 from glob import glob
 import logging
 import wandb
+import joblib
+import tensorflow as tf
 
 
 def parse_args():
@@ -23,13 +25,14 @@ def parse_args():
                         help='Environment to be used (default: point_mass).')
     parser.add_argument('--train', action='store_true',
                         help='Train the model (default: False).')
-    parser.add_argument('--mt1_env_num', type=int,
-                        choices=[0, 1, 2, 3, 4],
-                        default=0,
+    parser.add_argument('--mt1_env_name', type=str,
+                        default=None,
                         help='MT1 env to be used '
-                        '(default: 0).')
-    parser.add_argument('--sweep', action='store_true',
-                        help='Sweep the model (default: False).')
+                        '(default: None).')
+    parser.add_argument('--vis', action='store_true',
+                        help='Visualize policy (default: False).')
+    parser.add_argument('--causal', action='store_true',
+                        help='Compute ACE for policy (default: False).')
     parser.add_argument('--epochs', type=int, default=600,
                         help='Number of epochs to run for (default: 600)')
     parser.add_argument('--batch_size_per_task', type=int, default=1024,
@@ -38,9 +41,6 @@ def parse_args():
                         help='Path to save the log and iteration snapshot.')
     parser.add_argument('--exp_name', type=str, default=None,
                         help='Experiment name'
-                        '(default: None).')
-    parser.add_argument('--metaworld_task_name', type=str, default=None,
-                        help='Individual Task name for Metaworld experiment'
                         '(default: None).')
     parser.add_argument('--policy_optimizer_lr', type=float, default=1e-3,
                         help='Learning rate of policy optimizer (default: 1e-3)')
@@ -59,7 +59,13 @@ def parse_args():
                       help='random seed (default: 1)')
 
     args, unknownargs = parser.parse_known_args()
-    args.snapshot_dir = f"{args.snapshot_dir}{args.algo}/{args.env}/"
+    print(args.mt1_env_name)
+    if args.mt1_env_name is not None:
+        args.snapshot_dir = f"{args.snapshot_dir}{args.algo}/{args.env}/{args.mt1_env_name}"
+        for run, config_file in enumerate(glob(f'config/{args.algo}/mt5/*/params.pkl')):
+            args.folder = config_file
+    else:
+        args.snapshot_dir = f"{args.snapshot_dir}{args.algo}/{args.env}/"
     return args
 
 

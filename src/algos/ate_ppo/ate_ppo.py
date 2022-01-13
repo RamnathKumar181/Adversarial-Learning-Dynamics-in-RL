@@ -76,9 +76,6 @@ class ATEPPO(ATENPO):
                  inference_optimizer=None,
                  inference_optimizer_args=None,
                  inference_ce_coeff=1e-3,
-                 num_embedding_itr=20,
-                 num_policy_itr=30,
-                 num_inference_itr=30,
                  name='PPOTaskEmbedding'):
 
         policy_optimizer = policy_optimizer or FirstOrderOptimizer
@@ -117,7 +114,4 @@ class ATEPPO(ATENPO):
                          inference_optimizer=inference_optimizer,
                          inference_optimizer_args=inference_optimizer_args,
                          inference_ce_coeff=inference_ce_coeff,
-                         num_embedding_itr=num_embedding_itr,
-                         num_policy_itr=num_policy_itr,
-                         num_inference_itr=num_inference_itr,
                          name=name)

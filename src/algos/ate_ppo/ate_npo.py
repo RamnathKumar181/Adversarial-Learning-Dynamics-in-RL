@@ -152,19 +152,14 @@ class ATENPO(RLAlgorithm):
                  inference_optimizer=None,
                  inference_optimizer_args=None,
                  inference_ce_coeff=1e-3,
-                 num_embedding_itr=20,
-                 num_policy_itr=30,
-                 num_inference_itr=30,
-                 threshold=150,
+                 log_task_success=False,
                  name='NPOTaskEmbedding'):
         # pylint: disable=too-many-statements
         assert isinstance(policy, TaskEmbeddingPolicy)
         assert isinstance(inference, StochasticEncoder)
-
         self.policy = policy
         self._scope = scope
         self.max_episode_length = env_spec.max_episode_length
-        self.threshold = threshold
         self._env_spec = env_spec
         self._baseline = baseline
         self._discount = discount
@@ -174,12 +169,13 @@ class ATENPO(RLAlgorithm):
         self._fixed_horizon = fixed_horizon
         self._name = name
         self._name_scope = tf.name_scope(self._name)
-        self._old_policy = policy.clone('old_policy')
+        self.log_task_success = log_task_success
+        try:
+            self._old_policy = policy.clone('old_policy')
+        except Exception:
+            self._old_policy = policy.clone('old_policy_dummy')
         self._use_softplus_entropy = use_softplus_entropy
         self._stop_ce_gradient = stop_ce_gradient
-        self.num_embedding_itr = num_embedding_itr
-        self.num_policy_itr = num_policy_itr
-        self.num_inference_itr = num_inference_itr
         self.best_return = None
 
         policy_optimizer = policy_optimizer or LBFGSOptimizer
@@ -200,7 +196,10 @@ class ATENPO(RLAlgorithm):
             self._policy_ent_coeff = float(policy_ent_coeff)
 
             self._inference = inference
-            self._old_inference = inference.clone('old_inference')
+            try:
+                self._old_inference = inference.clone('old_inference')
+            except Exception:
+                self._old_inference = inference.clone('old_inference_dummy')
             self.inference_ce_coeff = float(inference_ce_coeff)
             self.inference_optimizer = inference_opt(**inference_opt_args)
             self.encoder_ent_coeff = encoder_ent_coeff
@@ -276,7 +275,6 @@ class ATENPO(RLAlgorithm):
 
         """
         last_return = None
-
         for _ in trainer.step_epochs():
             trainer.step_episode = trainer.obtain_episodes(trainer.step_itr)
             last_return = self._train_once(trainer.step_itr,
@@ -298,7 +296,7 @@ class ATENPO(RLAlgorithm):
             numpy.float64: Average return.
 
         """
-        if 'task_name' in episodes.split()[0].env_infos.keys():
+        if self.log_task_success:
             undiscounted_returns, success_per_task = log_performance_local(itr,
                                                                            episodes,
                                                                            discount=self._discount)
@@ -329,7 +327,7 @@ class ATENPO(RLAlgorithm):
         self._optimize_policy(itr, episodes, baselines, embed_eps,
                               embed_ep_infos)
         try:
-            if 'task_name' in episodes.split()[0].env_infos.keys():
+            if self.log_task_success:
                 task_success_dict = {}
                 for k in success_per_task.keys():
                     task_success_dict['{}/SuccessRate'.format(

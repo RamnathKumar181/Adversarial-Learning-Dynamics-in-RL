@@ -3,9 +3,9 @@
 #SBATCH --job-name=ate_ppo_mt1
 #SBATCH --output=../logs/ate_ppo_mt1_%a.out
 #SBATCH --error=../logs/ate_ppo_mt1_%a.err
-#SBATCH --gres=gpu:titanrtx:16gb:1
+#SBATCH --gres=gpu:titanrtx:1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=30G
+#SBATCH --mem=20G
 #SBATCH --array=0
 
 source ../venv/bin/activate
@@ -14,4 +14,4 @@ module load mujoco/2.0
 module load mujoco-py
 
 cd ..
-python -W ignore -m src.main --exp_name ate_ppo_mt1_$SLURM_ARRAY_TASK_ID --algo ate_ppo --train --env mt1 --mt1_env_num $SLURM_ARRAY_TASK_ID --snapshot_dir config/mt1/$SLURM_ARRAY_TASK_ID/
+python -W ignore -m src.main --exp_name ate_ppo_mt1_handle-pull --algo ate_ppo --train --env mt1 --mt1_env_name 'handle-pull-v2'

@@ -54,12 +54,10 @@ class BernoulliBanditEnv(gym.Env):
 
     def step(self, action):
         # assert self.action_space.contains(action)
-        print(action, math.floor(action))
         action = math.floor(action)
         mean = self._means[action]
         reward = self.np_random.binomial(1, mean)
         observation = np.zeros(1, dtype=np.float32)
-
         return observation, reward, True, {'task': self._task}
 
 
@@ -70,10 +68,10 @@ class BernoulliBanditEnv_5(BernoulliBanditEnv):
         )
 
 
-class BernoulliBanditEnv_100(BernoulliBanditEnv):
+class BernoulliBanditEnv_50(BernoulliBanditEnv):
     def __init__(self):
         super().__init__(
-            k=100
+            k=50
         )
 
 

@@ -1,37 +1,24 @@
 #!/usr/bin/env python3
 """This is an example to train Task Embedding PPO with PointEnv."""
 # pylint: disable=no-value-for-parameter
-import tensorflow as tf
-from garage import wrap_experiment
-import metaworld
-from garage.experiment import MetaWorldTaskSampler
-from garage.envs import normalize
-
-from garage.envs.multi_env_wrapper import MultiEnvWrapper, round_robin_strategy
-from garage.experiment.deterministic import set_seed
-from garage.np.baselines import LinearMultiFeatureBaseline
-from garage.sampler import LocalSampler
-from src.algos.ate_ppo import ATEPPO
-from garage.tf.algos.te import TaskEmbeddingWorker
-from garage.tf.embeddings import GaussianMLPEncoder
-from garage.tf.policies import GaussianMLPTaskEmbeddingPolicy
-from garage.trainer import TFTrainer
-import wandb
+import joblib
 import random
-
-
-def get_env(choice):
-    env_enum = {0: 'pick-place-wall-v2',
-                1: 'window-open-v2',
-                2: 'window-close-v2',
-                3: 'drawer-close-v2',
-                4: 'drawer-open-v2', }
-    epoch_enum = {0: 500,
-                  1: 100,
-                  2: 100,
-                  3: 100,
-                  4: 500, }
-    return env_enum[choice], epoch_enum[choice]
+import wandb
+from garage.trainer import TFTrainer
+from garage.experiment import Snapshotter
+from garage.tf.policies import GaussianMLPTaskEmbeddingPolicy
+from garage.tf.embeddings import GaussianMLPEncoder
+from garage.tf.algos.te import TaskEmbeddingWorker
+from src.algos.ate_ppo import ATEPPO
+from garage.sampler import LocalSampler
+from garage.np.baselines import LinearMultiFeatureBaseline
+from garage.experiment.deterministic import set_seed
+from garage.envs.multi_env_wrapper import MultiEnvWrapper, round_robin_strategy
+from garage.envs import normalize
+from garage.experiment import MetaWorldTaskSampler
+import metaworld
+from garage import wrap_experiment
+import tensorflow as tf
 
 
 @wrap_experiment
@@ -48,49 +35,46 @@ def train(ctxt):
 
     """
     set_seed(config.seed)
-    env_name, epoch = get_env(config.mt1_env_num)
 
-    mt1 = metaworld.MT1(env_name)
+    mt1 = metaworld.MT1(config.mt1_env_name)
     task_sampler = MetaWorldTaskSampler(mt1,
                                         'train',
                                         lambda env, _: normalize(env),
                                         add_env_onehot=False)
-    num_tasks = 50
+    num_tasks = 5
     envs = [env_up() for env_up in task_sampler.sample(num_tasks)]
 
     env = MultiEnvWrapper(envs,
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
+
     latent_length = 4
     inference_window = 6
     batch_size = 5000 * len(envs)
-    # policy_ent_coeff = 2e-2
-    # encoder_ent_coeff = 2e-2
-    # inference_ce_coeff = 5e-2
-    # embedding_init_std = 0.1
-    # embedding_max_std = 0.2
-    # embedding_min_std = 1e-6
-    # policy_init_std = 1.0
-    # policy_max_std = 1.5
-    # policy_min_std = 0.5
-    policy_ent_coeff = 0.594
-    encoder_ent_coeff = 1373.0
-    inference_ce_coeff = 0.09017
-    embedding_init_std = 0.6552
-    embedding_max_std = 0.05724
-    embedding_min_std = 3.556e-05
-    policy_init_std = 0.8588
-    policy_max_std = 0.01529
-    policy_min_std = 0.0002759
+    policy_ent_coeff = 2e-2
+    encoder_ent_coeff = 2e-2
+    inference_ce_coeff = 5e-2
+    embedding_init_std = 0.1
+    embedding_max_std = 0.2
+    embedding_min_std = 1e-6
+    policy_init_std = 1.0
+    policy_max_std = 1.5
+    policy_min_std = 0.5
 
     with TFTrainer(snapshot_config=ctxt) as trainer:
+        experiment = joblib.load(config.folder)
+        pre_trained_policy = experiment['algo'].policy
+        pre_trained_inference = experiment['algo']._inference
+        print('pre_trained_policy', pre_trained_policy)
+        print('pre_trained_inference', pre_trained_inference)
+
         task_embed_spec = ATEPPO.get_encoder_spec(env.task_space,
                                                   latent_dim=latent_length)
 
         task_encoder = GaussianMLPEncoder(
-            name='embedding',
+            name='new_embedding',
             embedding_spec=task_embed_spec,
-            hidden_sizes=(20, 10),
+            hidden_sizes=(20, 20),
             std_share_network=True,
             init_std=embedding_init_std,
             max_std=embedding_max_std,
@@ -105,9 +89,9 @@ def train(ctxt):
             inference_window_size=inference_window)
 
         inference = GaussianMLPEncoder(
-            name='inference',
+            name='new_inference',
             embedding_spec=traj_embed_spec,
-            hidden_sizes=(20, 10),
+            hidden_sizes=(20, 20),
             std_share_network=True,
             init_std=0.1,
             output_nonlinearity=tf.nn.tanh,
@@ -116,7 +100,7 @@ def train(ctxt):
         )
 
         policy = GaussianMLPTaskEmbeddingPolicy(
-            name='policy',
+            name='new_policy',
             env_spec=env.spec,
             encoder=task_encoder,
             hidden_sizes=(32, 16),
@@ -125,7 +109,15 @@ def train(ctxt):
             init_std=policy_init_std,
             min_std=policy_min_std,
         )
+        print("Loading previous parameters")
+        task_encoder.set_param_values(
+            pre_trained_policy.encoder.get_param_values())
+        inference.set_param_values(pre_trained_inference.get_param_values())
+        print("Finished loading Encoder parameters")
 
+        policy._f_dist_obs_latent = pre_trained_policy._f_dist_obs_latent
+        policy._f_dist_obs_task = pre_trained_policy._f_dist_obs_task
+        print("Finished loading Policy state")
         baseline = LinearMultiFeatureBaseline(
             env_spec=env.spec, features=['observations', 'tasks', 'latents'])
 
@@ -162,10 +154,11 @@ def train(ctxt):
                           learning_rate=5e-4,
                       ),
                       center_adv=True,
-                      stop_ce_gradient=True)
+                      stop_ce_gradient=True,
+                      name="test")
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=epoch, batch_size=batch_size, plot=False)
+        trainer.train(n_epochs=10, batch_size=batch_size, plot=False)
 
 
 def train_ate_ppo_mt1(args):

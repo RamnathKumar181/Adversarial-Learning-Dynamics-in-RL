@@ -17,15 +17,7 @@ from garage.tf.embeddings import GaussianMLPEncoder
 from garage.tf.policies import GaussianMLPTaskEmbeddingPolicy
 from garage.trainer import TFTrainer
 import wandb
-
-
-def get_env(choice):
-    env_enum = {0: 'pick-place-wall-v2',
-                1: 'window-open-v2',
-                2: 'window-close-v2',
-                3: 'drawer-close-v2',
-                4: 'drawer-open-v2', }
-    return env_enum[choice]
+import joblib
 
 
 @wrap_experiment
@@ -43,22 +35,20 @@ def train(ctxt):
     """
     set_seed(config.seed)
 
-    env_name = get_env(config.mt1_env_num)
-
-    mt1 = metaworld.MT1(env_name)
+    mt1 = metaworld.MT1(config.mt1_env_name)
     task_sampler = MetaWorldTaskSampler(mt1,
                                         'train',
                                         lambda env, _: normalize(env),
                                         add_env_onehot=False)
-    num_tasks = 50
+    num_tasks = 5
     envs = [env_up() for env_up in task_sampler.sample(num_tasks)]
+
     env = MultiEnvWrapper(envs,
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
-
     latent_length = 4
     inference_window = 6
-    batch_size = 2000 * len(envs)
+    batch_size = 50000 * len(envs)
     policy_ent_coeff = 2e-2
     encoder_ent_coeff = 2e-2
     inference_ce_coeff = 5e-2
@@ -70,11 +60,15 @@ def train(ctxt):
     policy_min_std = 0.5
 
     with TFTrainer(snapshot_config=ctxt) as trainer:
+        experiment = joblib.load(config.folder)
+        pre_trained_policy = experiment['algo'].policy
+        print('pre_trained_policy', pre_trained_policy)
+
         task_embed_spec = TEPPO.get_encoder_spec(env.task_space,
                                                  latent_dim=latent_length)
 
         task_encoder = GaussianMLPEncoder(
-            name='embedding',
+            name='new_embedding',
             embedding_spec=task_embed_spec,
             hidden_sizes=(20, 20),
             std_share_network=True,
@@ -91,9 +85,9 @@ def train(ctxt):
             inference_window_size=inference_window)
 
         inference = GaussianMLPEncoder(
-            name='inference',
+            name='new_inference',
             embedding_spec=traj_embed_spec,
-            hidden_sizes=(20, 10),
+            hidden_sizes=(20, 20),
             std_share_network=True,
             init_std=0.1,
             output_nonlinearity=tf.nn.tanh,
@@ -102,7 +96,7 @@ def train(ctxt):
         )
 
         policy = GaussianMLPTaskEmbeddingPolicy(
-            name='policy',
+            name='new_policy',
             env_spec=env.spec,
             encoder=task_encoder,
             hidden_sizes=(32, 16),
@@ -111,6 +105,14 @@ def train(ctxt):
             init_std=policy_init_std,
             min_std=policy_min_std,
         )
+        print("Loading previous parameters")
+        policy.encoder.set_param_values(
+            pre_trained_policy.encoder.get_param_values())
+        print("Finished loading Encoder parameters")
+
+        policy.set_param_values(
+            pre_trained_policy.get_param_values())
+        print("Finished loading Policy parameters")
 
         baseline = LinearMultiFeatureBaseline(
             env_spec=env.spec, features=['observations', 'tasks', 'latents'])
@@ -133,20 +135,21 @@ def train(ctxt):
                      inference_ce_coeff=inference_ce_coeff,
                      use_softplus_entropy=True,
                      optimizer_args=dict(
-                         batch_size=32,
-                         max_optimization_epochs=10,
-                         learning_rate=config.policy_optimizer_lr,
+                         batch_size=64,
+                         max_optimization_epochs=100,
+                         learning_rate=5e-4,
                      ),
                      inference_optimizer_args=dict(
                          batch_size=64,
-                         max_optimization_epochs=10,
-                         learning_rate=config.inference_optimizer_lr,
+                         max_optimization_epochs=50,
+                         learning_rate=5e-4,
                      ),
                      center_adv=True,
-                     stop_ce_gradient=True)
+                     stop_ce_gradient=True,
+                     name="test")
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=500, batch_size=batch_size, plot=True)
+        trainer.train(n_epochs=10, batch_size=batch_size, plot=False)
 
 
 def train_te_ppo_mt1(args):
