@@ -3,17 +3,13 @@ import os
 import time
 import tensorflow as tf
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 import matplotlib
 import numpy as np
 import joblib
-import cloudpickle
-from garage import rollout
 from src.causality import plot_ace
 import matplotlib as mpl
 from garage.experiment.deterministic import set_seed
-import scipy.fftpack
-
+import logging
 
 def rollout_given_z(env,
                     agent,
@@ -80,12 +76,15 @@ class Tester():
             self._visualize_each_task()
         if args.causal:
             self.get_causal_attributions()
+        if args.input_pertubation:
+            self.get_input_perturbation()
 
     def _build(self):
         with open(self.args.folder, 'rb') as file:
-            snapshot = cloudpickle.load(file)
-        self.env = snapshot["env"]
-        self.policy = snapshot["algo"].policy
+            experiment = joblib.load(file)
+
+        self.env = experiment["env"]
+        self.policy = experiment["algo"].policy
 
         # Tasks and goals
         self.num_tasks = self.policy.task_space.flat_dim
@@ -98,15 +97,33 @@ class Tester():
 
         self.colormap = mpl.cm.Dark2.colors
 
+        vol_squared = abs(np.linalg.det(
+            np.matmul(self.z_means, self.z_means.T)))
+        print(f"Diversity metric as volume: {vol_squared}")
+
     def _visualize_each_task(self):
         task_envs = self.env._task_envs
         fig = plt.figure(figsize=(7, 7))
-        plt.xlim([-4, 4])
-        plt.ylim([-4, 4])
         for task in range(self.num_tasks):
-            print(f"{task}: {task_envs[task]._goal}")
-            plt.scatter(task_envs[task]._goal[0], task_envs[task]._goal[1],
-                        s=5000, color=self.colormap[task], alpha=0.3)
+            if self.args.env == "point_mass":
+                plt.xlim([-4, 4])
+                plt.ylim([-4, 4])
+                print(f"{task}: {task_envs[task]._goal}")
+                plt.scatter(task_envs[task]._goal[0], task_envs[task]._goal[1],
+                            s=5000, color=self.colormap[task], alpha=0.3)
+            elif self.args.env=='navigation':
+                plt.xlim([-0.2, 1.2])
+                plt.ylim([-1.2, 1.2])
+                print(f"{task}: {task_envs[task]._env._env._task['goal']}")
+                plt.scatter(task_envs[task]._env._env._task['goal'][0],
+                            task_envs[task]._env._env._task['goal'][1],
+                            s=5000, color=self.colormap[task], alpha=0.3)
+            else:
+                path = rollout_given_z(task_envs[task], self.policy,
+                                       self.z_means[task],
+                                       max_path_length=200,
+                                       animated=True)
+                continue
             for i in range(5):
                 set_seed(i)
                 path = rollout_given_z(task_envs[task], self.policy,
@@ -128,6 +145,7 @@ class Tester():
             ace_total = []
             imp_total = []
             for run in range(5):
+                logging.info(f"Running run {run}")
                 ace, imp = plot_ace(mu=self.z_means[task],
                                     std=self.z_stds[task],
                                     num_c=self.num_latents,
@@ -162,7 +180,14 @@ class Tester():
             plt.yticks(fontsize=18)
             fig.tight_layout()
             fig.savefig(f"{os.path.dirname(self.args.folder)}/ace_{task}.pdf")
-            print(
-                f"Plotted ace for task: {task} with goal: {self.env._task_envs[task]._goal} and latent: {self.z_means[task]}")
+            try:
+                print(
+                    f"Plotted ace for task: {task} with goal: {self.env._task_envs[task]._goal} and latent: {self.z_means[task]}")
+            except Exception:
+                try:
+                    print(
+                        f"Plotted ace for task: {task} with goal: {self.env._task_envs[task]._env._env._task['goal']} and latent: {self.z_means[task]}")
+                except Exception:
+                    print(f"Plotted ace for task: {task} with goal: {self.env._task_envs[task]._env._task_name} and latent: {self.z_means[task]}")
             print(f"Importance for task {task}/mean: {mean_imp}")
             print(f"Importance for task {task}/std: {std_imp}")

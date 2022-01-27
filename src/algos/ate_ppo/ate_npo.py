@@ -343,6 +343,9 @@ class ATENPO(RLAlgorithm):
                 {'Average_Return': tabular.as_primitive_dict['Evaluation/AverageReturn']})
         return average_return
 
+    def get_exploration_policy(self):
+        return self.policy
+
     def _optimize_policy(self, itr, episodes, baselines, embed_eps,
                          embed_ep_infos):
         """Optimize policy.
@@ -1014,7 +1017,6 @@ class ATENPO(RLAlgorithm):
                 samples = norm.rvs(100)
                 hist = Histogram(samples)
                 tabular.record('Encoder/task={},i={}'.format(task, i), hist)
-            print(f"Latent for task {task}: {latent_infos['mean'][task]}")
 
     def _train_encoder_network(self, policy_opt_input_values):
         """Optimization of encoder networks.

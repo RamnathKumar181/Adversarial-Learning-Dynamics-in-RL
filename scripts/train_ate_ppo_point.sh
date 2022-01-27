@@ -1,12 +1,4 @@
 #!/bin/bash
-#SBATCH --partition=unkillable
-#SBATCH --job-name=ate_ppo_point
-#SBATCH --output=../logs/ate_ppo_point.out
-#SBATCH --error=../logs/ate_ppo_point.err
-#SBATCH --gres=gpu:titanrtx:1
-#SBATCH --cpus-per-task=2
-#SBATCH --mem=10G
-#SBATCH --time=1-00:00:00
 
 source ../venv/bin/activate
 module load python/3.7

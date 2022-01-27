@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""This is an example to train Task Embedding PPO with PointEnv."""
+"""This is an example to Adversarial train Task Embedding PPO with PointEnv."""
 # pylint: disable=no-value-for-parameter
 import numpy as np
 import tensorflow as tf
@@ -50,7 +50,7 @@ TASKS = {
 
 @wrap_experiment
 def train(ctxt):
-    """Train Task Embedding PPO with PointEnv.
+    """Train Adversarial Task Embedding PPO with PointEnv.
 
     Args:
         ctxt (garage.experiment.ExperimentContext): The experiment

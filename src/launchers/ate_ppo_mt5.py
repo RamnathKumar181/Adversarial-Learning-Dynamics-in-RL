@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""This is an example to train Task Embedding PPO with PointEnv."""
+"""This is an example to train Adversarial Task Embedding PPO with MT5 (Metaworld)."""
 # pylint: disable=no-value-for-parameter
 import tensorflow as tf
 import src.envs.metaworld_mt5 as mt5
@@ -16,12 +16,11 @@ from garage.tf.algos.te import TaskEmbeddingWorker
 from garage.tf.embeddings import GaussianMLPEncoder
 from garage.tf.policies import GaussianMLPTaskEmbeddingPolicy
 from garage.trainer import TFTrainer
-import wandb
 
 
 @wrap_experiment
 def train(ctxt):
-    """Train Task Embedding PPO with PointEnv.
+    """Train Adversarial Task Embedding PPO with MT5 (Metaworld).
 
     Args:
         ctxt (garage.experiment.ExperimentContext): The experiment

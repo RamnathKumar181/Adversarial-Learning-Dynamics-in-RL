@@ -1,12 +1,4 @@
 #!/bin/bash
-#SBATCH --partition=main
-#SBATCH --job-name=te_ppo_mt1
-#SBATCH --output=../logs/te_ppo_mt1_%a.out
-#SBATCH --error=../logs/te_ppo_mt1_%a.err
-#SBATCH --gres=gpu:titanrtx:1
-#SBATCH --cpus-per-task=2
-#SBATCH --mem=20G
-#SBATCH --array=0
 
 source ../venv/bin/activate
 module load python/3.7
@@ -14,4 +6,18 @@ module load mujoco/2.0
 module load mujoco-py
 
 cd ..
-python -W ignore -m src.main --exp_name te_ppo_mt1_handle-pull --algo te_ppo --train --env mt1 --mt1_env_name 'handle-pull-v2'
+if [ $SLURM_ARRAY_TASK_ID -eq 0 ]; then
+    python -W ignore -m src.main --exp_name te_ppo_mt1 --algo te_ppo --train --env mt1 --mt1_env_name 'faucet-open-v2'
+fi
+
+if [ $SLURM_ARRAY_TASK_ID -eq 1 ]; then
+    python -W ignore -m src.main --exp_name te_ppo_mt1 --algo te_ppo --train --env mt1 --mt1_env_name 'push-back-v2'
+fi
+
+if [ $SLURM_ARRAY_TASK_ID -eq 2 ]; then
+    python -W ignore -m src.main --exp_name te_ppo_mt1 --algo te_ppo --train --env mt1 --mt1_env_name 'coffee-button-v2'
+fi
+
+if [ $SLURM_ARRAY_TASK_ID -eq 3 ]; then
+    python -W ignore -m src.main --exp_name te_ppo_mt1 --algo te_ppo --train --env mt1 --mt1_env_name 'push-wall-v2'
+fi

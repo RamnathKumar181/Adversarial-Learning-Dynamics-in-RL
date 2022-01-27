@@ -19,8 +19,7 @@ def parse_args():
                         help='Algorithm to be used (default: te_ppo).')
     parser.add_argument('--env', type=str,
                         choices=['point_mass', 'mt5',
-                                 'mt1', 'mt10', 'navigation', 'bandit',
-                                 'multiroom_n2s4'],
+                                 'mt1', 'navigation', 'bandit'],
                         default='point_mass',
                         help='Environment to be used (default: point_mass).')
     parser.add_argument('--train', action='store_true',
@@ -33,6 +32,8 @@ def parse_args():
                         help='Visualize policy (default: False).')
     parser.add_argument('--causal', action='store_true',
                         help='Compute ACE for policy (default: False).')
+    parser.add_argument('--input_pertubation', action='store_true',
+                        help='Compute input pertrubation for policy (default: False).')
     parser.add_argument('--epochs', type=int, default=600,
                         help='Number of epochs to run for (default: 600)')
     parser.add_argument('--batch_size_per_task', type=int, default=1024,
@@ -52,6 +53,7 @@ def parse_args():
                         help='Policy_ent_coeff (default: 1e-3)')
     parser.add_argument('--encoder_ent_coeff', type=float, default=1e-3,
                         help='Encoder_ent_coeff (default: 1e-3)')
+
 
     # Miscellaneous
     misc = parser.add_argument_group('Miscellaneous')
@@ -80,5 +82,5 @@ if __name__ == '__main__':
     else:
         for run, config_file in enumerate(glob(f'{args.snapshot_dir}/*/params.pkl')):
             args.folder = config_file
-            logging.info(config_file)
-            Tester(args)
+        logging.info(args.folder)
+        Tester(args)

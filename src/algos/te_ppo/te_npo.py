@@ -150,6 +150,7 @@ class TENPO(RLAlgorithm):
                  inference_optimizer=None,
                  inference_optimizer_args=None,
                  inference_ce_coeff=0.0,
+                 log_task_success=False,
                  name='NPOTaskEmbedding'):
         # pylint: disable=too-many-statements
         assert isinstance(policy, TaskEmbeddingPolicy)
@@ -168,10 +169,14 @@ class TENPO(RLAlgorithm):
         self._fixed_horizon = fixed_horizon
         self._name = name
         self._name_scope = tf.name_scope(self._name)
-        self._old_policy = policy.clone('old_policy')
+        try:
+            self._old_policy = policy.clone('old_policy')
+        except Exception:
+            self._old_policy = policy.clone('old_policy_dummy')
         self._use_softplus_entropy = use_softplus_entropy
         self._stop_ce_gradient = stop_ce_gradient
         self.best_return = None
+        self.log_task_success = log_task_success
         optimizer = optimizer or LBFGSOptimizer
         optimizer_args = optimizer_args or dict()
 
@@ -185,7 +190,11 @@ class TENPO(RLAlgorithm):
             self._policy_ent_coeff = float(policy_ent_coeff)
 
             self._inference = inference
-            self._old_inference = inference.clone('old_inference')
+            try:
+                self._old_inference = inference.clone('old_inference')
+            except Exception:
+                self._old_inference = inference.clone('old_inference_dummy')
+
             self.inference_ce_coeff = float(inference_ce_coeff)
             self.inference_optimizer = inference_opt(**inference_opt_args)
             self.encoder_ent_coeff = encoder_ent_coeff
@@ -274,7 +283,7 @@ class TENPO(RLAlgorithm):
             numpy.float64: Average return.
 
         """
-        if 'task_name' in episodes.split()[0].env_infos.keys():
+        if self.log_task_success:
             undiscounted_returns, success_per_task = log_performance_local(itr,
                                                                            episodes,
                                                                            discount=self._discount)
@@ -305,7 +314,7 @@ class TENPO(RLAlgorithm):
         self._optimize_policy(itr, episodes, baselines, embed_eps,
                               embed_ep_infos)
         try:
-            if 'task_name' in episodes.split()[0].env_infos.keys():
+            if self.log_task_success:
                 task_success_dict = {}
                 for k in success_per_task.keys():
                     task_success_dict['{}/SuccessRate'.format(
@@ -542,7 +551,6 @@ class TENPO(RLAlgorithm):
 
         """
         # pylint: disable=too-many-statements
-        print(i.augmented_obs_var, i.task_var)
         self._policy_network, self._encoder_network = (self.policy.build(
             i.augmented_obs_var, i.task_var, name='loss_policy'))
         self._old_policy_network, self._old_encoder_network = (
@@ -601,7 +609,6 @@ class TENPO(RLAlgorithm):
                     tf.minimum(ll - old_ll, np.log(1 + self._lr_clip_range)))
 
                 surrogate = lr * adv
-                print(surrogate)
                 surrogate = tf.debugging.check_numerics(surrogate,
                                                         message='surrogate')
 
@@ -942,10 +949,6 @@ class TENPO(RLAlgorithm):
         path_lengths = np.sum(valids, axis=1)
         for t in range(self.policy.task_space.flat_dim):
             lengths = path_lengths[task_indices == t]
-            if np.isnan(np.mean(lengths)):
-                print(f"Nan value for length: {lengths}")
-                if np.isnan(lengths):
-                    print("Length itself is nan...")
             completed = lengths < self.max_episode_length
             pct_completed = np.mean(completed)
             tabular.record('Tasks/EpisodeLength/t={}'.format(t),

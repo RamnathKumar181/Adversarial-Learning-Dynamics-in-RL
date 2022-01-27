@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""This is an example to train Task Embedding PPO with PointEnv."""
+"""This is an example to train Task Embedding PPO with 2-D Navigation."""
 # pylint: disable=no-value-for-parameter
 import tensorflow as tf
 from garage.experiment import SetTaskSampler
 from garage.envs import normalize
-from src.envs.navigation import Navigation2DEnv
+from src.envs.navigation_future import FutureNavigation2DEnv
 from garage.envs import GymEnv
 import gym
 from garage import wrap_experiment
@@ -22,7 +22,7 @@ import wandb
 
 @wrap_experiment
 def train(ctxt):
-    """Train Task Embedding PPO with PointEnv.
+    """Train Task Embedding PPO with 2-D Navigation.
 
     Args:
         ctxt (garage.experiment.ExperimentContext): The experiment
@@ -35,27 +35,27 @@ def train(ctxt):
     """
     set_seed(config.seed)
     train_task_sampler = SetTaskSampler(
-        Navigation2DEnv,
+        FutureNavigation2DEnv,
         wrapper=lambda env, _: normalize(
             GymEnv(env, max_episode_length=100)))
 
-    envs = [env_up() for env_up in train_task_sampler.sample(1)]
+    envs = [env_up() for env_up in train_task_sampler.sample(3)]
     env = MultiEnvWrapper(envs,
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
 
     latent_length = 4
     inference_window = 6
-    batch_size = 1024 * 1
-    policy_ent_coeff = 2e-2
-    encoder_ent_coeff = 2e-2
+    batch_size = 1024 * len(envs)
+    policy_ent_coeff = 1e-3
+    encoder_ent_coeff = 1e-3
     inference_ce_coeff = 5e-2
     embedding_init_std = 0.1
     embedding_max_std = 0.2
     embedding_min_std = 1e-6
     policy_init_std = 1.0
-    policy_max_std = 1.5
-    policy_min_std = 0.5
+    policy_max_std = 2.0
+    policy_min_std = None
 
     with TFTrainer(snapshot_config=ctxt) as trainer:
         task_embed_spec = TEPPO.get_encoder_spec(env.task_space,
@@ -123,7 +123,7 @@ def train(ctxt):
                      optimizer_args=dict(
                          batch_size=32,
                          max_optimization_epochs=10,
-                         learning_rate=1e-3,
+                         learning_rate=1e-4,
                      ),
                      inference_optimizer_args=dict(
                          batch_size=32,
@@ -134,10 +134,10 @@ def train(ctxt):
                      stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=100, batch_size=batch_size, plot=False)
+        trainer.train(n_epochs=400, batch_size=batch_size, plot=False)
 
 
-def train_te_ppo_navigation(args):
+def train_te_ppo_future_navigation(args):
     global config
     config = args
     train({'log_dir': args.snapshot_dir,

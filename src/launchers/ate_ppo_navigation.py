@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""This is an example to train Task Embedding PPO with PointEnv."""
+"""This is an example to train Adversarial Task Embedding PPO with 2-D Navigation."""
 # pylint: disable=no-value-for-parameter
 import tensorflow as tf
 from garage.experiment import SetTaskSampler
 from garage.envs import normalize
-from src.envs.navigation import Navigation2DEnv
+from src.envs.navigation import FutureNavigation2DEnv
 from garage.envs import GymEnv
 import gym
 from garage import wrap_experiment
@@ -22,7 +22,7 @@ import wandb
 
 @wrap_experiment
 def train(ctxt):
-    """Train Task Embedding PPO with PointEnv.
+    """Train Adversarial Task Embedding PPO with 2-D Navigation.
 
     Args:
         ctxt (garage.experiment.ExperimentContext): The experiment
@@ -35,11 +35,11 @@ def train(ctxt):
     """
     set_seed(config.seed)
     train_task_sampler = SetTaskSampler(
-        Navigation2DEnv,
+        FutureNavigation2DEnv,
         wrapper=lambda env, _: normalize(
             GymEnv(env, max_episode_length=100)))
 
-    envs = [env_up() for env_up in train_task_sampler.sample(1)]
+    envs = [env_up() for env_up in train_task_sampler.sample(3)]
     env = MultiEnvWrapper(envs,
                           sample_strategy=round_robin_strategy,
                           mode='vanilla')
@@ -121,28 +121,28 @@ def train(ctxt):
                       inference_ce_coeff=inference_ce_coeff,
                       use_softplus_entropy=True,
                       encoder_optimizer_args=dict(
-                          batch_size=64,
+                          batch_size=32,
                           max_optimization_epochs=10,
                           learning_rate=1e-4,
                       ),
                       policy_optimizer_args=dict(
                           batch_size=64,
                           max_optimization_epochs=10,
-                          learning_rate=1e-3,
+                          learning_rate=5e-4,
                       ),
                       inference_optimizer_args=dict(
                           batch_size=64,
                           max_optimization_epochs=10,
-                          learning_rate=1e-3,
+                          learning_rate=5e-4,
                       ),
                       center_adv=True,
                       stop_ce_gradient=True)
 
         trainer.setup(algo, env)
-        trainer.train(n_epochs=100, batch_size=batch_size, plot=False)
+        trainer.train(n_epochs=400, batch_size=batch_size, plot=False)
 
 
-def train_ate_ppo_navigation(args):
+def train_ate_ppo_future_navigation(args):
     global config
     config = args
     train({'log_dir': args.snapshot_dir,
