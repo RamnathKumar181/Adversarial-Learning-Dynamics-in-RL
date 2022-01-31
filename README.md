@@ -53,7 +53,14 @@ All our codes were run with 1 GPUs (TitanRTX or A100). Furthermore, all our code
 
 If you find our codes useful, do consider citing our paper:
 ```
-Add arxiv link here
+@misc{kumar2022rethinking,
+      title={Rethinking Learning Dynamics in RL using Adversarial Networks}, 
+      author={Ramnath Kumar and Tristan Deleu and Yoshua Bengio},
+      year={2022},
+      eprint={2201.11783},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
 ```
 
 # References
